@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>음성 인식</title>
+</head>
+<body>
+
+<h2>음성 입력 테스트</h2>
+
+<button onclick="startRecognition()">말하기 시작</button>
+
+<p id="result"></p>
+
+<script>
+function startRecognition() {
+
+    const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = 'ko-KR';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onresult = function(event) {
+
+        let text = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            text += event.results[i][0].transcript;
+        }
+
+        document.getElementById('result').innerText = text;
+    };
+
+    recognition.start();
+}
+</script>
+
+</body>
+</html>
