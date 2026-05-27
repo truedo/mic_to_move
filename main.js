@@ -3,7 +3,9 @@ import { AI_CONFIG } from './ai-config.js';
 
 env.allowLocalModels = false;
 
-// 테마별 프리셋 UI 데이터 세팅
+// ==========================================
+// 1. 테마별 프리셋 UI 데이터 세팅
+// ==========================================
 const appPresets = {
     smartcar: { themeClass: "screen-smartcar", btnBg: "#00e5ff", text: "#ffffff", sub: "#7084b0", dMeta: "Autopilot 관제 시스템", dValue: "HUD 크루즈 모드 대기", dBadge: "🏎️", placeholder: "📍 자율주행 주행 제어\n\"앞으로 조금 가볼래?\", \"우회전\"\nZumi 조종 음성을 자유롭게 말해보세요." },
     taxi: { themeClass: "screen-taxi", btnBg: "#f59e0b", text: "#ffffff", sub: "#9ca3af", dMeta: "실시간 미터기 정보", dValue: "영업 상태: 대기 중", dBadge: "🚕", placeholder: "🚖 AI 호출 택시 플랫폼\n\"오른쪽으로 차선 변경해줘\"\n목적지 방향 지시를 내리세요." },
@@ -46,7 +48,9 @@ window.changePresetEngine = function() {
     }
 };
 
-// 통신 및 화면 엘레먼트 리소스 연동
+// ==========================================
+// 2. 통신 브로커 및 기본 화면 엘레먼트 연결
+// ==========================================
 const client = mqtt.connect(AI_CONFIG.mqtt_broker);
 const statusDiv = document.getElementById("status");
 const speechStatusDiv = document.getElementById("speechStatus");
@@ -55,25 +59,32 @@ const aiMatchDiv = document.getElementById("ai-match");
 const button = document.getElementById("voiceButton");
 const topicInput = document.getElementById("topic");
 
-// 슬라이더 및 명령어 추가 UI 바인딩
+// 민감도 슬라이더 및 아코디언 관련 엘레먼트 바인딩 (여기에 딱 한 번만 정의!)
 const thresholdSlider = document.getElementById("threshold-slider");
 const thresholdValDisplay = document.getElementById("threshold-val");
 const thresholdDesc = document.getElementById("threshold-desc");
+const accordionBtn = document.getElementById("accordion-toggle-btn");
+const accordionBottomCloseBtn = document.getElementById("accordion-bottom-close-btn");
+const accordionContent = document.getElementById("accordion-content");
+const accordionArrow = document.getElementById("accordion-arrow");
 const commandTagsContainer = document.getElementById("command-tags-container");
 const newCommandInput = document.getElementById("new-command-input");
 
-// 실시간 변형을 위한 동적 로컬 변수화
+// 런타임 제어용 전역 변수
 let currentThreshold = AI_CONFIG.threshold;
-let liveCommands = [...AI_CONFIG.base_commands]; // 실시간 명령어 리스트
+let liveCommands = [...AI_CONFIG.base_commands];
 let extractor = null;
 let base_embeddings = [];
 let isListening = false;
 
-// 초기 UI 상태 세팅 동기화
+// 초기 설정 동기화
 topicInput.value = AI_CONFIG.default_topic;
 
-// 슬라이더 상태 및 설명 메시지 동적 업데이트 함수
+// ==========================================
+// 3. 민감도 슬라이더 상태 조작 엔진
+// ==========================================
 function updateSliderUI(value) {
+    if(!thresholdValDisplay || !thresholdSlider || !thresholdDesc) return;
     thresholdValDisplay.innerText = value.toFixed(2);
     if (value <= 0.35) {
         thresholdSlider.style.accentColor = "#22c55e";
@@ -93,114 +104,60 @@ function updateSliderUI(value) {
     }
 }
 
-// 화면에 실시간 명령어 배지 태그를 그려주는 함수
-// 💡 [수정] 화면에 명령어 배지 태그를 그려주는 함수 (엑스 버튼 및 삭제 기능 추가)
-// 💡 [업그레이드] 기본 명령어와 추가 명령어를 색상과 버튼으로 완벽히 분리하는 함수
+if(thresholdSlider) {
+    thresholdSlider.oninput = function() {
+        currentThreshold = parseFloat(this.value);
+        updateSliderUI(currentThreshold);
+    };
+}
+
+// ==========================================
+// 4. AI 명령어 배지 그리기 / 추가 / 제거 로직
+// ==========================================
 function renderCommandTags() {
     if (!commandTagsContainer) return;
     commandTagsContainer.innerHTML = "";
 
     liveCommands.forEach((cmd, index) => {
-        // 시스템 기본 명령어인지 판별 (true / false)
         const isSystemCommand = AI_CONFIG.base_commands.includes(cmd);
-
-        // 태그 전체를 감싸는 상자 생성
         const tag = document.createElement("span");
 
         if (isSystemCommand) {
-            // 🔒 1. 시스템 기본 명령어 디자인 (차분한 슬레이트 그레이/네이비 톤)
             tag.style.cssText = `
                 font-size: 0.75rem; font-weight: bold; padding: 4px 10px;
                 background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.3);
                 border-radius: 6px; color: #94a3b8; display: inline-flex; align-items: center; gap: 6px;
             `;
-
-            // 글자 영역만 생성 후 삽입 (X 버튼 없음)
             const textSpan = document.createElement("span");
-            textSpan.innerText = `🔒 ${cmd}`; // 자물쇠 아이콘으로 시각적 보호 표시
+            textSpan.innerText = `🔒 ${cmd}`;
             tag.appendChild(textSpan);
-
         } else {
-            // 🟢 2. 사용자가 추가한 커스텀 훈련 단어 디자인 (화사한 네온 스카이블루 톤)
             tag.style.cssText = `
                 font-size: 0.75rem; font-weight: bold; padding: 4px 10px;
                 background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.6);
                 border-radius: 6px; color: #38bdf8; display: inline-flex; align-items: center; gap: 6px;
                 box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
             `;
-
-            // 글자 영역
             const textSpan = document.createElement("span");
             textSpan.innerText = `• ${cmd}`;
             tag.appendChild(textSpan);
 
-            // 삭제 가능한 단어에만 활성화되는 엑스(×) 버튼
             const closeBtn = document.createElement("span");
             closeBtn.innerText = "×";
-            closeBtn.style.cssText = `
-                cursor: pointer; color: #f87171; font-size: 0.9rem; font-weight: 900;
-                padding: 0 2px; transition: color 0.2s;
-            `;
+            closeBtn.style.cssText = `cursor: pointer; color: #f87171; font-size: 0.9rem; font-weight: 900; padding: 0 2px; transition: color 0.2s;`;
             closeBtn.onmouseover = () => closeBtn.style.color = "#ef4444";
             closeBtn.onmouseout = () => closeBtn.style.color = "#f87171";
-
-            // 클릭 시 삭제 전역 함수 호출
             closeBtn.onclick = () => window.removeAIVocabulary(index, cmd);
             tag.appendChild(closeBtn);
         }
-
         commandTagsContainer.appendChild(tag);
     });
 }
 
-// 💡 [새로 추가] 학생들이 태그의 X를 눌렀을 때 발동하는 인공지능 단어 망각(삭제) 함수
-window.removeAIVocabulary = function(index, cmd) {
-    // ai-config.js에 적어둔 가장 기본적인 필수 5대 명령어는 실수로 지우지 못하게 안전장치를 겁니다.
-    if (AI_CONFIG.base_commands.includes(cmd)) {
-        alert(`"${cmd}"는 시스템 기본 명령어이므로 삭제할 수 없습니다!`);
-        return;
-    }
-
-    if (!confirm(`🤖 AI에게 학습시킨 "${cmd}" 명령어를 삭제(망각)하시겠습니까?`)) return;
-
-    try {
-        button.disabled = true; // 연산 싱크를 위해 잠시 마이크 차단
-
-        // 1. 라이브 단어 배열에서 해당 순서의 데이터 1개 삭제
-        liveCommands.splice(index, 1);
-
-        // 2. 중요: 수학적 인공지능 벡터 저장소(base_embeddings)에서도 똑같은 순서의 벡터를 삭제합니다.
-        base_embeddings.splice(index, 1);
-
-        // 3. UI 리렌더링
-        renderCommandTags();
-        speechStatusDiv.innerText = `✓ "${cmd}" 단어를 기억에서 완전히 삭제했습니다.`;
-    } catch (e) {
-        speechStatusDiv.innerText = "단어 삭제 실패: " + e.message;
-        console.error(e);
-    } finally {
-        button.disabled = false;
-    }
-};
-
-// 슬라이더 조작 실시간 이벤트 리스너 정의
-thresholdSlider.oninput = function() {
-    currentThreshold = parseFloat(this.value);
-    updateSliderUI(currentThreshold);
-};
-
-// 💡 [기존 유지] 학생들이 화면에서 새 명령어를 주입할 때 발동하는 함수
 window.addNewAIVocabulary = async function() {
     const newCmd = newCommandInput.value.trim();
-
-    if (!newCmd) {
-        alert("추가할 명령어 단어를 입력해 주세요!");
-        return;
-    }
-    if (liveCommands.includes(newCmd)) {
-        alert("이미 인공지능이 학습한 명령어입니다.");
-        return;
-    }
+    if (!newCmd) { alert("추가할 명령어 단어를 입력해 주세요!"); return; }
+    if (liveCommands.includes(newCmd)) { alert("이미 인공지능이 학습한 명령어입니다."); return; }
 
     speechStatusDiv.innerText = `🧠 AI에게 "${newCmd}" 단어를 훈련하는 중...`;
     button.disabled = true;
@@ -214,6 +171,7 @@ window.addNewAIVocabulary = async function() {
 
         newCommandInput.value = "";
         speechStatusDiv.innerText = `✓ "${newCmd}" 단어 훈련 완수! 즉시 사용 가능`;
+        window.resizeAccordionIfOpen();
     } catch (e) {
         speechStatusDiv.innerText = "단어 학습 실패: " + e.message;
         console.error(e);
@@ -222,7 +180,71 @@ window.addNewAIVocabulary = async function() {
     }
 };
 
-// 코사인 유사도 벡터 계산 엔진
+window.removeAIVocabulary = function(index, cmd) {
+    if (AI_CONFIG.base_commands.includes(cmd)) return;
+    if (!confirm(`🤖 AI에게 학습시킨 "${cmd}" 명령어를 삭제(망각)하시겠습니까?`)) return;
+
+    try {
+        button.disabled = true;
+        liveCommands.splice(index, 1);
+        base_embeddings.splice(index, 1);
+        renderCommandTags();
+        speechStatusDiv.innerText = `✓ "${cmd}" 단어를 기억에서 완전히 삭제했습니다.`;
+        window.resizeAccordionIfOpen();
+    } catch (e) {
+        speechStatusDiv.innerText = "단어 삭제 실패: " + e.message;
+        console.error(e);
+    } finally {
+        button.disabled = false;
+    }
+};
+
+// ==========================================
+// 5. 아코디언 접기/펼치기 및 사파리 튜닝 스크립트
+// ==========================================
+if (commandTagsContainer) {
+    const style = document.createElement('style');
+    style.innerHTML = `
+        #command-tags-container::-webkit-scrollbar { width: 6px !important; display: block !important; }
+        #command-tags-container::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05) !important; border-radius: 4px !important; }
+        #command-tags-container::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.4) !important; border-radius: 4px !important; }
+    `;
+    document.head.appendChild(style);
+}
+
+function handleAccordionToggle(forceClose = false) {
+    if (!accordionContent) return;
+    const currentMaxHeight = accordionContent.style.maxHeight;
+
+    if (forceClose || (currentMaxHeight && currentMaxHeight !== "0px")) {
+        accordionContent.style.maxHeight = "0px";
+        if (accordionArrow) { accordionArrow.style.transform = "rotate(0deg)"; accordionArrow.style.color = "#38bdf8"; }
+    } else {
+        accordionContent.style.maxHeight = "none";
+        const targetHeight = accordionContent.scrollHeight;
+        accordionContent.style.maxHeight = "0px";
+        setTimeout(() => {
+            accordionContent.style.maxHeight = targetHeight + "px";
+            if (accordionArrow) { accordionArrow.style.transform = "rotate(180deg)"; accordionArrow.style.color = "#ef4444"; }
+        }, 10);
+    }
+}
+
+if (accordionBtn) { accordionBtn.addEventListener("click", (e) => { e.preventDefault(); handleAccordionToggle(false); }); }
+if (accordionBottomCloseBtn) { accordionBottomCloseBtn.addEventListener("click", (e) => { e.preventDefault(); handleAccordionToggle(true); }); }
+
+window.resizeAccordionIfOpen = function() {
+    if (accordionContent && accordionContent.style.maxHeight && accordionContent.style.maxHeight !== "0px") {
+        accordionContent.style.maxHeight = "none";
+        const newHeight = accordionContent.scrollHeight;
+        accordionContent.style.maxHeight = newHeight + "px";
+        setTimeout(() => { if (commandTagsContainer) commandTagsContainer.scrollTop = commandTagsContainer.scrollHeight; }, 50);
+    }
+};
+
+// ==========================================
+// 6. 수학적 AI 코사인 유사도 분석 핵심 모듈
+// ==========================================
 function calculateCosineSimilarity(query, base) {
     let dotProduct = 0.0; let normA = 0.0; let normB = 0.0;
     for (let i = 0; i < query.length; i++) {
@@ -234,7 +256,6 @@ function calculateCosineSimilarity(query, base) {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-// AI 추론 모델 초기 구축
 async function initAI() {
     const progressBar = document.getElementById('loading-bar');
     const progressPct = document.getElementById('loading-pct');
@@ -251,16 +272,12 @@ async function initAI() {
             }
         });
 
-        if (document.getElementById('loading-msg')) {
-            document.getElementById('loading-msg').innerText = "🤖 명령어 벡터 공간 변환 매핑 중...";
-        }
+        if (document.getElementById('loading-msg')) { document.getElementById('loading-msg').innerText = "🤖 명령어 벡터 공간 변환 매핑 중..."; }
 
-        // 실시간 연동 리스트(liveCommands) 기반으로 AI 벡터화 맵 최초 빌딩
         base_embeddings = await Promise.all(
             liveCommands.map(cmd => extractor(cmd, { pooling: 'mean', normalize: true }))
         );
 
-        // 로딩 완료 후 인터페이스 개방 및 배지 그리기
         if (loadingZone) loadingZone.style.display = 'none';
         renderCommandTags();
         button.disabled = false;
@@ -269,14 +286,11 @@ async function initAI() {
         button.style.background = appPresets[selected].btnBg;
         speechStatusDiv.innerText = "주행 대시보드 스탠바이 완료";
     } catch (e) {
-        if (document.getElementById('loading-msg')) {
-            document.getElementById('loading-msg').innerText = "AI 컴파일 실패: " + e.message;
-        }
+        if (document.getElementById('loading-msg')) { document.getElementById('loading-msg').innerText = "AI 컴파일 실패: " + e.message; }
         console.error(e);
     }
 }
 
-// 시맨틱 의미 매칭 핸들러
 async function analyzeSpeechIntent(student_speech) {
     speechStatusDiv.innerText = "🤖 온디바이스 NLP 분석 구동 중...";
     const speech_embedding = await extractor(student_speech, { pooling: 'mean', normalize: true });
@@ -291,16 +305,12 @@ async function analyzeSpeechIntent(student_speech) {
         }
     }
 
-    // 실시간 슬라이더 변수(currentThreshold) 및 가변 명령어 목록(liveCommands) 인용
     if (max_similarity > currentThreshold) {
         const final_command = liveCommands[best_match_index];
         const pct = Math.round(max_similarity * 100);
-
         aiMatchDiv.innerText = `🤖 AI 판단: "${final_command}" (${pct}% 일치)`;
         speechStatusDiv.innerText = "✓ 매칭 명령어 패킷 발행 완료";
-
-        const topic = topicInput.value;
-        client.publish(topic, final_command);
+        client.publish(topicInput.value, final_command);
     } else {
         const pct = Math.round(max_similarity * 100);
         const final_command = liveCommands[best_match_index];
@@ -309,31 +319,23 @@ async function analyzeSpeechIntent(student_speech) {
     }
 }
 
-// MQTT 네트워크 이벤트 리스너
-client.on("connect", () => {
-    statusDiv.innerText = "● NETWORK CONNECTED";
-    statusDiv.style.borderColor = "#22c55e"; statusDiv.style.color = "#22c55e";
-});
-client.on("error", () => {
-    statusDiv.innerText = "● CONNECTION FAILED";
-    statusDiv.style.borderColor = "#ef4444"; statusDiv.style.color = "#ef4444";
-});
+// ==========================================
+// 7. 스마트폰 마이크 음성인식 인터페이스 브릿지
+// ==========================================
+client.on("connect", () => { statusDiv.innerText = "● NETWORK CONNECTED"; statusDiv.style.borderColor = "#22c55e"; statusDiv.style.color = "#22c55e"; });
+client.on("error", () => { statusDiv.innerText = "● CONNECTION FAILED"; statusDiv.style.borderColor = "#ef4444"; statusDiv.style.color = "#ef4444"; });
 
-// 음성 캡처 인터페이스
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
 if (recognition) {
-    recognition.lang = "ko-KR";
-    recognition.interimResults = true;
-    recognition.continuous = false;
+    recognition.lang = "ko-KR"; recognition.interimResults = true; recognition.continuous = false;
 
     window.startRecognition = function() {
         if(isListening){ recognition.stop(); return; }
         isListening = true;
         button.classList.add("listening");
         speechStatusDiv.innerText = "🎙️ 실시간 보이스 트래킹 중...";
-
         resultDiv.innerText = ""; aiMatchDiv.innerText = "";
         resultDiv.style.color = "inherit"; resultDiv.setAttribute('data-has-text', 'true');
         recognition.start();
@@ -345,87 +347,27 @@ if (recognition) {
         let realtimeText = "";
         for(let i = 0; i < event.results.length; i++){ realtimeText += event.results[i][0].transcript; }
         resultDiv.innerText = realtimeText;
-
         const lastResult = event.results[event.results.length - 1];
         if(lastResult.isFinal){ analyzeSpeechIntent(lastResult[0].transcript); }
     };
 
     recognition.onend = () => {
-        isListening = false;
-        button.classList.remove("listening");
+        isListening = false; button.classList.remove("listening");
         setTimeout(() => {
             if(!isListening && !speechStatusDiv.innerText.includes("발행 완료") && !speechStatusDiv.innerText.includes("취소됨")){
                 speechStatusDiv.innerText = "대시보드 링크 스탠바이";
                 const selected = document.getElementById("uiPreset").value;
                 if(resultDiv.innerText.trim() === "" || resultDiv.innerText === currentPlaceholder) {
-                    resultDiv.innerText = currentPlaceholder;
-                    resultDiv.style.color = appPresets[selected].sub;
-                    resultDiv.removeAttribute('data-has-text');
+                    resultDiv.innerText = currentPlaceholder; resultDiv.style.color = appPresets[selected].sub; resultDiv.removeAttribute('data-has-text');
                 }
             }
         }, 2000);
     };
 
-    recognition.onerror = (event) => {
-        speechStatusDiv.innerText = "FAIL: " + event.error;
-        isListening = false; button.classList.remove("listening");
-    };
+    recognition.onerror = (event) => { speechStatusDiv.innerText = "FAIL: " + event.error; isListening = false; button.classList.remove("listening"); };
 }
 
-// 💡 [사파리 호환성 100% 업그레이드] 아코디언 제어 및 이벤트 바인딩 엔진
-const accordionBtn = document.getElementById("accordion-toggle-btn");
-const accordionContent = document.getElementById("accordion-content");
-const accordionArrow = document.getElementById("accordion-arrow");
-
-if (accordionBtn && accordionContent) {
-    // 사파리가 인지할 수 있도록 자바스크립트 단에서 직접 이벤트를 주입합니다.
-    accordionBtn.addEventListener("click", function(e) {
-        e.preventDefault(); // 사파리 고유의 기본 버블링 동작 방지
-
-        // 현재 세팅된 max-height 값 확인
-        const currentMaxHeight = accordionContent.style.maxHeight;
-
-        if (currentMaxHeight && currentMaxHeight !== "0px") {
-            // 닫기 액션
-            accordionContent.style.maxHeight = "0px";
-            if (accordionArrow) {
-                accordionArrow.style.transform = "rotate(0deg)";
-                accordionArrow.style.color = "#38bdf8";
-            }
-        } else {
-            // 열기 액션: 사파리에서 scrollHeight를 강제로 다시 계산하도록 유도
-            accordionContent.style.maxHeight = "none"; // 임시로 해제 후
-            const targetHeight = accordionContent.scrollHeight; // 높이 측정
-            accordionContent.style.maxHeight = "0px"; // 다시 초기화 한 뒤
-
-            // 브라우저 리플로우(Reflow)를 의도적으로 유발하여 애니메이션이 작동하게 만듭니다.
-            setTimeout(() => {
-                accordionContent.style.maxHeight = targetHeight + "px";
-                if (accordionArrow) {
-                    accordionArrow.style.transform = "rotate(180deg)";
-                    accordionArrow.style.color = "#ef4444";
-                }
-            }, 10);
-        }
-    });
-}
-
-// 💡 단어가 새로 추가되거나 삭제될 때 자동으로 높이를 재연산해주는 함수 (사파리 튜닝 버전)
-window.resizeAccordionIfOpen = function() {
-    if (accordionContent && accordionContent.style.maxHeight && accordionContent.style.maxHeight !== "0px") {
-        accordionContent.style.maxHeight = "none";
-        const newHeight = accordionContent.scrollHeight;
-        accordionContent.style.maxHeight = newHeight + "px";
-    }
-};
-
-// [기존 main.js 내부 기능 결합 수정 안내]
-// 앞에서 구현했던 window.addNewAIVocabulary() 함수 성공 리턴 끝부분(try 블록 마지막줄)과
-// window.removeAIVocabulary() 함수 성공 리턴 끝부분에 각각 [ resizeAccordionIfOpen(); ] 한 줄씩만 적어주시면
-// 단어가 늘어나거나 줄어들 때 아코디언 창 크기가 알아서 자동으로 부드럽게 슥 늘어났다 줄어듭니다!
-
-
-// 최초 런타임 엔트리 트리거 실행
+// 최초 가동 엔트리 트리거
 thresholdSlider.value = currentThreshold;
 updateSliderUI(currentThreshold);
 initAI();
