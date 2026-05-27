@@ -372,34 +372,52 @@ if (recognition) {
     };
 }
 
+// 💡 [사파리 호환성 100% 업그레이드] 아코디언 제어 및 이벤트 바인딩 엔진
+const accordionBtn = document.getElementById("accordion-toggle-btn");
+const accordionContent = document.getElementById("accordion-content");
+const accordionArrow = document.getElementById("accordion-arrow");
 
-// 💡 [새로 추가] 아코디언 메뉴를 부드럽게 열고 닫아주는 슬라이딩 애니메이션 엔진
-window.toggleAccordionEngine = function() {
-    const content = document.getElementById("accordion-content");
-    const arrow = document.getElementById("accordion-arrow");
+if (accordionBtn && accordionContent) {
+    // 사파리가 인지할 수 있도록 자바스크립트 단에서 직접 이벤트를 주입합니다.
+    accordionBtn.addEventListener("click", function(e) {
+        e.preventDefault(); // 사파리 고유의 기본 버블링 동작 방지
 
-    // 현재 열려있는지 확인 (maxHeight 존재 여부 체크)
-    if (content.style.maxHeight && content.style.maxHeight !== "0px") {
-        // 닫기 리액션
-        content.style.maxHeight = "0px";
-        arrow.style.transform = "rotate(0deg)";
-        arrow.style.color = "#38bdf8";
-    } else {
-        // 열기 리액션 (scrollHeight를 사용하여 내부 컨텐츠 높이만큼 정확하게 동적 스트레칭)
-        content.style.maxHeight = content.scrollHeight + "px";
-        arrow.style.transform = "rotate(180deg)";
-        arrow.style.color = "#ef4444"; // 열렸을 땐 경고/닫기 직관성을 위해 빨간색 화살표로 변환
+        // 현재 세팅된 max-height 값 확인
+        const currentMaxHeight = accordionContent.style.maxHeight;
+
+        if (currentMaxHeight && currentMaxHeight !== "0px") {
+            // 닫기 액션
+            accordionContent.style.maxHeight = "0px";
+            if (accordionArrow) {
+                accordionArrow.style.transform = "rotate(0deg)";
+                accordionArrow.style.color = "#38bdf8";
+            }
+        } else {
+            // 열기 액션: 사파리에서 scrollHeight를 강제로 다시 계산하도록 유도
+            accordionContent.style.maxHeight = "none"; // 임시로 해제 후
+            const targetHeight = accordionContent.scrollHeight; // 높이 측정
+            accordionContent.style.maxHeight = "0px"; // 다시 초기화 한 뒤
+
+            // 브라우저 리플로우(Reflow)를 의도적으로 유발하여 애니메이션이 작동하게 만듭니다.
+            setTimeout(() => {
+                accordionContent.style.maxHeight = targetHeight + "px";
+                if (accordionArrow) {
+                    accordionArrow.style.transform = "rotate(180deg)";
+                    accordionArrow.style.color = "#ef4444";
+                }
+            }, 10);
+        }
+    });
+}
+
+// 💡 단어가 새로 추가되거나 삭제될 때 자동으로 높이를 재연산해주는 함수 (사파리 튜닝 버전)
+window.resizeAccordionIfOpen = function() {
+    if (accordionContent && accordionContent.style.maxHeight && accordionContent.style.maxHeight !== "0px") {
+        accordionContent.style.maxHeight = "none";
+        const newHeight = accordionContent.scrollHeight;
+        accordionContent.style.maxHeight = newHeight + "px";
     }
 };
-
-// 💡 단어가 새로 추가되거나 삭제될 때 아코디언 내부 높이가 바뀌므로,
-// 열려있는 상태라면 아코디언 높이(maxHeight)를 자동으로 재계산해주는 방어 코드 동기화
-function resizeAccordionIfOpen() {
-    const content = document.getElementById("accordion-content");
-    if (content.style.maxHeight && content.style.maxHeight !== "0px") {
-        content.style.maxHeight = content.scrollHeight + "px";
-    }
-}
 
 // [기존 main.js 내부 기능 결합 수정 안내]
 // 앞에서 구현했던 window.addNewAIVocabulary() 함수 성공 리턴 끝부분(try 블록 마지막줄)과
