@@ -125,18 +125,28 @@
         </div>
     </div>
 
-    <div class="app-dashboard" id="command-manager-box" style="margin-top: 10px; background: rgba(15, 23, 42, 0.6); text-align: left;">
-        <div class="dash-meta" style="margin-bottom: 8px; color: #38bdf8; font-weight: bold;">🧠 AI 학습 명령어 리스트</div>
+    <div class="app-dashboard" style="margin-top: 10px; padding: 0; overflow: hidden; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1);">
 
-        <div id="command-tags-container" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;"></div>
+            <button id="accordion-toggle-btn" onclick="window.toggleAccordionEngine()" style="width: 100%; padding: 14px 16px; background: transparent; border: none; color: #38bdf8; font-weight: bold; font-size: 0.85rem; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; outline: none;">
+                <span>🧠 AI 명령어 훈련소 (열기/닫기)</span>
+                <span id="accordion-arrow" style="transition: transform 0.3s ease;">▼</span>
+            </button>
 
-        <div style="display: flex; gap: 8px;">
-            <input type="text" id="new-command-input" placeholder="새로운 명령어 입력 (예: 경적을 울려라)"
-                   style="flex: 1; padding: 10px; border-radius: 8px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); color: white; font-size: 0.8rem; outline: none;">
-            <button id="add-command-btn" onclick="window.addNewAIVocabulary()"
-                    style="padding: 10px 16px; font-size: 0.8rem; background: #38bdf8; border-radius: 8px; font-weight: bold;">+ 훈련시키기</button>
+            <div id="accordion-content" style="max-height: 0px; overflow: hidden; transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(15, 23, 42, 0.4);">
+                <div style="padding: 16px; border-top: 1px solid rgba(255,255,255,0.05);">
+                    <div class="dash-meta" style="margin-bottom: 8px; opacity: 0.8;">현재 인프라에 학습된 명령어 단어:</div>
+
+                    <div id="command-tags-container" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; max-height: 120px; overflow-y: auto; padding-right: 4px;"></div>
+
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="new-command-input" placeholder="새 명령어 입력 (예: 경적을 울려라)"
+                            style="flex: 1; padding: 10px; border-radius: 8px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); color: white; font-size: 0.8rem; outline: none;">
+                        <button id="add-command-btn" onclick="window.addNewAIVocabulary()"
+                                style="padding: 10px 14px; font-size: 0.8rem; background: #38bdf8; border: none; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; white-space: nowrap;">+ 훈련</button>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
 
 </header>
 

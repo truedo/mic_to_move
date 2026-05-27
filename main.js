@@ -372,6 +372,41 @@ if (recognition) {
     };
 }
 
+
+// 💡 [새로 추가] 아코디언 메뉴를 부드럽게 열고 닫아주는 슬라이딩 애니메이션 엔진
+window.toggleAccordionEngine = function() {
+    const content = document.getElementById("accordion-content");
+    const arrow = document.getElementById("accordion-arrow");
+
+    // 현재 열려있는지 확인 (maxHeight 존재 여부 체크)
+    if (content.style.maxHeight && content.style.maxHeight !== "0px") {
+        // 닫기 리액션
+        content.style.maxHeight = "0px";
+        arrow.style.transform = "rotate(0deg)";
+        arrow.style.color = "#38bdf8";
+    } else {
+        // 열기 리액션 (scrollHeight를 사용하여 내부 컨텐츠 높이만큼 정확하게 동적 스트레칭)
+        content.style.maxHeight = content.scrollHeight + "px";
+        arrow.style.transform = "rotate(180deg)";
+        arrow.style.color = "#ef4444"; // 열렸을 땐 경고/닫기 직관성을 위해 빨간색 화살표로 변환
+    }
+};
+
+// 💡 단어가 새로 추가되거나 삭제될 때 아코디언 내부 높이가 바뀌므로,
+// 열려있는 상태라면 아코디언 높이(maxHeight)를 자동으로 재계산해주는 방어 코드 동기화
+function resizeAccordionIfOpen() {
+    const content = document.getElementById("accordion-content");
+    if (content.style.maxHeight && content.style.maxHeight !== "0px") {
+        content.style.maxHeight = content.scrollHeight + "px";
+    }
+}
+
+// [기존 main.js 내부 기능 결합 수정 안내]
+// 앞에서 구현했던 window.addNewAIVocabulary() 함수 성공 리턴 끝부분(try 블록 마지막줄)과
+// window.removeAIVocabulary() 함수 성공 리턴 끝부분에 각각 [ resizeAccordionIfOpen(); ] 한 줄씩만 적어주시면
+// 단어가 늘어나거나 줄어들 때 아코디언 창 크기가 알아서 자동으로 부드럽게 슥 늘어났다 줄어듭니다!
+
+
 // 최초 런타임 엔트리 트리거 실행
 thresholdSlider.value = currentThreshold;
 updateSliderUI(currentThreshold);
