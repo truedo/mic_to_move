@@ -1,60 +1,351 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI 음성 제어 리모컨</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Zumi 임베디드 AI 멀티 인터페이스</title>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
 <style>
-    body { font-family: sans-serif; text-align: center; padding-top: 50px; }
-    button { padding: 15px 30px; font-size: 18px; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; }
-    button:disabled { background-color: #ccc; }
-    #status { color: #666; margin-top: 20px; font-weight: bold; }
-    #result { margin-top: 10px; font-size: 20px; color: blue; }
-    #ai-match { margin-top: 10px; font-size: 24px; color: green; font-weight: bold; }
-    #loading-zone { margin-bottom: 20px; }
+    /* 기본 모바일 레이아웃 */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
+    }
+
+    body {
+        background-color: #0b0f19;
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 100vh;
+        padding: 20px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    header, main, .controls {
+        position: relative;
+        z-index: 10;
+    }
+
+    /* 프리셋 셀렉터 전용 바 */
+    .preset-container {
+        margin-bottom: 12px;
+    }
+    .preset-select {
+        width: 100%;
+        padding: 14px;
+        border-radius: 12px;
+        background-color: #1e293b;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+        font-size: 0.95rem;
+        font-weight: bold;
+        outline: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+    .preset-select option {
+        background-color: #1e293b;
+        color: #ffffff;
+        font-weight: bold;
+        padding: 14px;
+    }
+
+    /* 테마별 커스텀 배경 및 레이아웃 엔진 */
+    .theme-screen {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 1;
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        display: none;
+        opacity: 0;
+    }
+    .theme-screen.active {
+        display: block;
+        opacity: 1;
+    }
+
+    /* 1. 스마트카 */
+    #screen-smartcar { background: radial-gradient(circle at center, #111c34 0%, #060913 100%); }
+    #screen-smartcar .hud-circle {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 280px; height: 280px; border: 2px dashed rgba(0, 229, 255, 0.15); border-radius: 50%; animation: spin 20s linear infinite;
+    }
+
+    /* 2. AI 택시 */
+    #screen-taxi { background: #1e1e24; }
+    #screen-taxi .map-grid {
+        position: absolute; width: 100%; height: 100%;
+        background-image: linear-gradient(rgba(245, 158, 11, 0.05) 2px, transparent 2px), linear-gradient(90deg, rgba(245, 158, 11, 0.05) 2px, transparent 2px);
+        background-size: 40px 40px;
+    }
+    #screen-taxi .route-line {
+        position: absolute; top: 40%; left: -10%; width: 120%; height: 4px; background: #f59e0b; transform: rotate(15deg); box-shadow: 0 0 15px #f59e0b;
+    }
+
+    /* 3. 로봇비서 */
+    #screen-assistant { background: linear-gradient(135deg, #eef2f6 0%, #dfe7f0 100%); }
+    #screen-assistant .orb {
+        position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%);
+        width: 200px; height: 200px; background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(99,102,241,0) 70%); animation: floatOrb 4s ease-in-out infinite alternate;
+    }
+
+    /* 4. 물류 로봇 */
+    #screen-delivery { background: #0f172a; }
+    #screen-delivery .laser-line {
+        position: absolute; width: 100%; height: 1px; background: rgba(249, 115, 22, 0.5); box-shadow: 0 0 10px #f97316; animation: scan 3s linear infinite;
+    }
+
+    /* 5. 안내 로봇 */
+    #screen-guide { background: #f4f4f5; }
+    #screen-guide .bg-pattern {
+        position: absolute; width: 100%; height: 100%; background: radial-gradient(#e4e4e7 2px, transparent 2px); background-size: 24px 24px;
+    }
+
+    /* 6. 우주 탐사선 */
+    #screen-mars { background: #1c0a00; }
+    #screen-mars .radar-line {
+        position: absolute; top: 50%; left: 50%; width: 350px; height: 350px; border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 50%; transform: translate(-50%, -50%);
+    }
+    #screen-mars .radar-line::before {
+        content: ""; position: absolute; top:0; left:50%; width:2px; height:50%; background: #eab308; transform-origin: bottom center; animation: spin 4s linear infinite;
+    }
+
+    /* 테마별 특화 대시보드 인포창 */
+    .app-dashboard {
+        padding: 16px; border-radius: 16px; margin-top: 10px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .dash-row { display: flex; justify-content: space-between; align-items: center; }
+    .dash-meta { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.7; }
+    .dash-value { font-size: 1.2rem; font-weight: 800; }
+
+    /* 공통 메인 뷰어 영역 */
+    .main-container {
+        flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin: 20px 0;
+    }
+    #status {
+        font-size: 0.8rem; padding: 5px 12px; border-radius: 20px; font-weight: bold; margin-bottom: 25px;
+        background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2);
+    }
+    #speechStatus { font-size: 1.1rem; font-weight: 800; margin-bottom: 12px; color: #7084b0; }
+
+    #result {
+        width: 100%; max-width: 380px; min-height: 60px; font-size: 1.4rem; font-weight: bold; line-height: 1.5; word-break: keep-all; margin-bottom: 10px;
+    }
+    #ai-match { font-size: 1.6rem; color: #22c55e; font-weight: 900; min-height: 40px; word-break: keep-all; }
+
+    /* 하단 음성인식 버튼 컨트롤러 */
+    .controls { display: flex; flex-direction: column; align-items: center; }
+    .mic-container { position: relative; width: 90px; height: 90px; }
+    .mic-btn {
+        width: 100%; height: 100%; border-radius: 50%; border: none; outline: none; cursor: pointer;
+        display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; z-index: 5;
+        background: #00e5ff; /* 기본 스마트카 색상 선 적용 */
+    }
+    .mic-btn svg { width: 36px; height: 36px; fill: #ffffff; transition: all 0.3s; }
+    .mic-btn:disabled { background-color: #4b5563 !important; cursor: not-allowed; opacity: 0.6; }
+
+    .mic-btn.listening { background: #ef4444 !important; transform: scale(1.08); box-shadow: 0 0 30px rgba(239, 68, 68, 0.6) !important; }
+    .mic-btn.listening svg { animation: shake 0.4s infinite alternate; }
+
+    .pulse-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background: rgba(239, 68, 68, 0.4); opacity: 0; }
+    .mic-btn.listening + .pulse-ring { animation: pulse 1.3s infinite linear; }
+
+    /* 하단 숨김형 MQTT 토픽 박스 */
+    .sub-topic-box { margin-top: 15px; font-size: 0.75rem; opacity: 0.6; display: flex; align-items: center; gap: 6px; }
+    .sub-topic-box input {
+        background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.3);
+        color: inherit; font-size: 0.75rem; outline: none; width: 120px; text-align: center;
+    }
+
+    /* AI 로딩 프로그레시브 바 전용 레이아웃 위젯 */
+    .ai-loading-box {
+        background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.15);
+        padding: 12px; border-radius: 12px; margin-top: 8px; font-size: 0.85rem; text-align: center;
+    }
+    progress { width: 100%; height: 12px; border-radius: 6px; margin-top: 6px; }
+
+    /* 키프레임 애니메이션 */
+    @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+    @keyframes scan { 0% { top: 0%; } 50% { top: 100%; } 100% { top: 0%; } }
+    @keyframes floatOrb { 0% { transform: translate(-50%, -45%) scale(1); } 100% { transform: translate(-50%, -55%) scale(1.1); } }
+    @keyframes pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.8); opacity: 0; } }
+    @keyframes shake { 0% { transform: rotate(-6deg); } 100% { transform: rotate(6deg); } }
 </style>
 </head>
 <body>
 
-<h2>AI 음성 제어 테스트 (문장 유사도)</h2>
+<div id="screen-smartcar" class="theme-screen active"><div class="hud-circle"></div></div>
+<div id="screen-taxi" class="theme-screen"><div class="map-grid"></div><div class="route-line"></div></div>
+<div id="screen-assistant" class="theme-screen"><div class="orb"></div></div>
+<div id="screen-delivery" class="theme-screen"><div class="laser-line"></div></div>
+<div id="screen-guide" class="theme-screen"><div class="bg-pattern"></div></div>
+<div id="screen-mars" class="theme-screen"><div class="radar-line"></div></div>
 
-<div id="loading-zone">
-    <p id="loading-msg">🤖 AI 모델 파일을 다운로드하는 중... (최초 1회만 진행)</p>
-    <progress id="loading-bar" value="0" max="100" style="width: 300px; height: 20px;"></progress>
-    <span id="loading-pct">0%</span>
+<header>
+    <div class="preset-container">
+        <select id="uiPreset" class="preset-select" onchange="window.changePresetEngine()">
+            <option value="smartcar">🏎️ [스마트카] Autopilot 주행 스크린</option>
+            <option value="taxi">🚖 [AI 택시] T-Map 실시간 배차 보드</option>
+            <option value="assistant">🔮 [로봇비서] Home IoT 스마트 킷</option>
+            <option value="delivery">📦 [물류로봇] AGV 자율 수송 시스템</option>
+            <option value="guide">🏢 [안내로봇] 빌딩 무인 인포메이션</option>
+            <option value="mars">🚀 [행성탐사] NASA 우주 로버 원격 관제</option>
+        </select>
+    </div>
+
+    <div class="app-dashboard" id="appDashboard">
+        <div class="dash-row">
+            <div>
+                <div class="dash-meta" id="dashMetaLabel">Autopilot 관제 시스템</div>
+                <div class="dash-value" id="dashMainValue">HUD 크루즈 모드 대기</div>
+            </div>
+            <div id="dashStatusBadge" style="font-size: 1.5rem;">🏎️</div>
+        </div>
+    </div>
+
+    <div class="app-dashboard ai-loading-box" id="loadingZone">
+        <span id="loading-msg" style="font-weight: bold; color: #38bdf8;">🤖 AI 로봇 두뇌 로딩 중... (최초 1회)</span>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+            <progress id="loading-bar" value="0" max="100"></progress>
+            <span id="loading-pct" style="font-weight: bold; width: 40px;">0%</span>
+        </div>
+    </div>
+</header>
+
+<main class="main-container">
+    <div id="status">연결 확인 중...</div>
+    <div id="speechStatus">인공지능 인프라 빌딩 중...</div>
+    <div id="result"></div>
+    <div id="ai-match"></div>
+</main>
+
+<div class="controls">
+    <div class="mic-container">
+        <button id="voiceButton" class="mic-btn" disabled>
+            <svg viewBox="0 0 24 24">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+            </svg>
+        </button>
+        <div class="pulse-ring"></div>
+    </div>
+
+    <div class="sub-topic-box" id="topicBox">
+        <span>MQTT:</span>
+        <input type="text" id="topic" value="student01/cmd" autocomplete="off" spellcheck="false">
+    </div>
 </div>
 
-<button id="start-btn" onclick="startRecognition()" disabled>말하기 시작</button>
-
-<p id="status">대기 중...</p>
-<p id="result">내가 한 말: -</p>
-<hr>
-<p id="ai-match">🤖 AI 분석 결과: -</p>
-
 <script type="module">
-// 2. 에러 수정: 오류가 나던 cosine_similarity 대신 기본 pipeline만 안전하게 가져옵니다.
+// Transformers 라이브러리 탑재 및 로컬 제한 헤제
 import { env, pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.0';
-
-// 허깅페이스 CDN에서 직접 모델 파일을 받도록 설정 고정
 env.allowLocalModels = false;
 
-// 3. 통신 및 데이터 전역 변수 설정
-const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-const MQTT_TOPIC = "mic_to_move/test_room"; // ⚠️ 수업 시 학생마다 다르게 설정 유도
+const appPresets = {
+    smartcar: {
+        themeClass: "screen-smartcar", btnBg: "#00e5ff", text: "#ffffff", sub: "#7084b0",
+        dMeta: "Autopilot 관제 시스템", dValue: "HUD 크루즈 모드 대기", dBadge: "🏎️",
+        placeholder: "📍 자율주행 주행 제어\n\"앞으로 조금 가볼래?\", \"우회전\"\nZumi 조종 음성을 자유롭게 말해보세요."
+    },
+    taxi: {
+        themeClass: "screen-taxi", btnBg: "#f59e0b", text: "#ffffff", sub: "#9ca3af",
+        dMeta: "실시간 미터기 정보", dValue: "영업 상태: 대기 중", dBadge: "🚕",
+        placeholder: "🚖 AI 호출 택시 플랫폼\n\"오른쪽으로 차선 변경해줘\"\n목적지 방향 지시를 내리세요."
+    },
+    assistant: {
+        themeClass: "screen-assistant", btnBg: "#6366f1", text: "#1f2937", sub: "#6b7280",
+        dMeta: "AI 스마트 싱크 링크", dValue: "개인 로봇 비서 활성화", dBadge: "🔮",
+        placeholder: "🤖 로봇 비서 커넥트\n\"거기서 잠깐만 멈춰줄래?\"\n수행할 비서 업무를 지시하세요."
+    },
+    delivery: {
+        themeClass: "screen-delivery", btnBg: "#f97316", text: "#f8fafc", sub: "#94a3b8",
+        dMeta: "AGV 적재 물류 현황", dValue: "배터리 100% [도어 잠김]", dBadge: "📦",
+        placeholder: "🏭 자율 물류 로봇 시스템\n\"후진해서 자재창고로 가\"\n물류 이동 명령을 내려주세요."
+    },
+    guide: {
+        themeClass: "screen-guide", btnBg: "#0ea5e9", text: "#18181b", sub: "#71717a",
+        dMeta: "인포 무인 키오스크", dValue: "안내 스크린 정상 작동", dBadge: "🏢",
+        placeholder: "💁 빌딩 인포메이션 로봇\n\"우측 통로로 이동해봐\"\n원하는 이동 방향을 편하게 요청하세요."
+    },
+    mars: {
+        themeClass: "screen-mars", btnBg: "#eab308", text: "#fef3c7", sub: "#b45309",
+        dMeta: "Deep Space 원격 터미널", dValue: "위성 신호 양호 (PING 1.2s)", dBadge: "🛰️",
+        placeholder: "🚀 행성 탐사선 로버 조종\n\"정면 전방으로 전진 기어\"\nNASA 우주 통제부 조종 신호를 보냅니다."
+    }
+};
 
+let currentPlaceholder = appPresets.smartcar.placeholder;
+
+// 💡 중요: window 객체에 직접 할당하여 HTML 엘레먼트(onchange)에서 호출할 수 있도록 가공
+window.changePresetEngine = function() {
+    const selected = document.getElementById("uiPreset").value;
+    const config = appPresets[selected];
+
+    document.querySelectorAll('.theme-screen').forEach(scr => scr.classList.remove('active'));
+    document.getElementById(`screen-${selected}`).classList.add('active');
+
+    document.body.style.color = config.text;
+    document.getElementById("speechStatus").style.color = config.sub;
+    document.getElementById("status").style.color = config.text;
+    document.getElementById("topicBox").style.color = config.text;
+
+    document.getElementById("dashMetaLabel").innerText = config.dMeta;
+    document.getElementById("dashMainValue").innerText = config.dValue;
+    document.getElementById("dashStatusBadge").innerText = config.dBadge;
+
+    const dash = document.getElementById("appDashboard");
+    if(selected === "assistant" || selected === "guide") {
+        dash.style.background = "rgba(0, 0, 0, 0.05)";
+        dash.style.borderColor = "rgba(0, 0, 0, 0.1)";
+    } else {
+        dash.style.background = "rgba(255, 255, 255, 0.05)";
+        dash.style.borderColor = "rgba(255, 255, 255, 0.1)";
+    }
+
+    const micBtn = document.getElementById("voiceButton");
+    if(!micBtn.disabled) {
+        micBtn.style.background = config.btnBg;
+    }
+
+    currentPlaceholder = config.placeholder;
+    const resultDiv = document.getElementById("result");
+    if(resultDiv.getAttribute('data-has-text') !== 'true') {
+        resultDiv.innerText = currentPlaceholder;
+        resultDiv.style.color = config.sub;
+    }
+};
+
+// 통신 리소스 할당
+const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
+const statusDiv = document.getElementById("status");
+const speechStatusDiv = document.getElementById("speechStatus");
+const resultDiv = document.getElementById("result");
+const aiMatchDiv = document.getElementById("ai-match");
+const button = document.getElementById("voiceButton");
+
+let isListening = false;
 let extractor = null;
 const base_commands = ["앞으로 가라", "뒤로 가라", "오른쪽으로 돌아", "왼쪽으로 돌아", "멈춰"];
 let base_embeddings = [];
 
-// 💡 안전한 코사인 유사도 계산 함수 직접 구현
-// 두 배열(벡터)의 수학적 거리(유사도)를 비교하여 -1 ~ 1 사이의 값을 반환합니다.
+resultDiv.innerText = currentPlaceholder;
+const startSelected = document.getElementById("uiPreset").value;
+resultDiv.style.color = appPresets[startSelected].sub;
+
+// 코사인 유사도 벡터 계산 엔진
 function calculateCosineSimilarity(query, base) {
-    let dotProduct = 0.0;
-    let normA = 0.0;
-    let normB = 0.0;
+    let dotProduct = 0.0; let normA = 0.0; let normB = 0.0;
     for (let i = 0; i < query.length; i++) {
         dotProduct += query[i] * base[i];
         normA += query[i] * query[i];
@@ -64,17 +355,21 @@ function calculateCosineSimilarity(query, base) {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-// 4. AI 모델 다운로드 및 초기화 함수
+// AI 추론 모델 초기 구축
+// AI 추론 모델 초기 구축 및 프로그레시브 바 매핑
 async function initAI() {
+    // 💡 이름 불일치 에러 해결: HTML의 id="loadingZone"과 똑같이 맞춰줍니다.
     const progressBar = document.getElementById('loading-bar');
     const progressPct = document.getElementById('loading-pct');
-    const loadingZone = document.getElementById('loading-zone');
+    const loadingZone = document.getElementById('appDashboard'); // 대시보드 구조에 맞춰 로딩존 엘레먼트를 정확히 타겟팅하거나 아래처럼 통합 처리
+
+    // 만약 상단에 만든 loadingZone 이라는 박스 자체가 필요하다면 안전하게 체크 후 제어합니다.
+    const actualLoadingZone = document.getElementById('loadingZone');
 
     try {
-        // 실시간 progress를 감수하여 퍼센트 반영
         extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
             progress_callback: (data) => {
-                if (data.status === 'progress') {
+                if (data.status === 'progress' && progressBar && progressPct) {
                     const progressValue = Math.round(data.progress);
                     progressBar.value = progressValue;
                     progressPct.innerText = `${progressValue}%`;
@@ -82,33 +377,38 @@ async function initAI() {
             }
         });
 
-        // 다운로드 성공 후 기준 명령어 수치화 진행
-        document.getElementById('loading-msg').innerText = "🤖 명령어 데이터를 분석하는 중...";
+        if (actualLoadingZone) {
+            document.getElementById('loading-msg').innerText = "🤖 명령어 벡터 공간 변환 매핑 중...";
+        }
+
         base_embeddings = await Promise.all(
             base_commands.map(cmd => extractor(cmd, { pooling: 'mean', normalize: true }))
         );
 
-        // 로딩 영역 숨기고 말하기 버튼 활성화
-        loadingZone.style.display = 'none';
-        document.getElementById('start-btn').disabled = false;
-        document.getElementById('status').innerText = "AI 준비 완료! 버튼을 누르고 말씀하세요.";
+        // 💡 안전한 UI 마감 처리: 엘레먼트가 존재할 때만 style을 조작하도록 예외 처리를 강화했습니다.
+        if (actualLoadingZone) {
+            actualLoadingZone.style.display = 'none';
+        }
+
+        button.disabled = false;
+        const selected = document.getElementById("uiPreset").value;
+        button.style.background = appPresets[selected].btnBg;
+        speechStatusDiv.innerText = "주행 대시보드 스탠바이 완료";
     } catch (e) {
-        document.getElementById('loading-msg').innerText = "AI 로딩 실패: " + e.message;
+        if (actualLoadingZone) {
+            document.getElementById('loading-msg').innerText = "AI 컴파일 실패: " + e.message;
+        }
         console.error(e);
     }
 }
 
-// 5. 음성 의도 분석 및 MQTT 전송 함수
+// 시맨틱 의미 매칭 핸들러
 async function analyzeSpeechIntent(student_speech) {
-    document.getElementById('status').innerText = "🤖 AI가 의미를 분석하는 중...";
-
-    // 학생이 한 말을 수치화(임베딩)
+    speechStatusDiv.innerText = "🤖 온디바이스 NLP 분석 구동 중...";
     const speech_embedding = await extractor(student_speech, { pooling: 'mean', normalize: true });
 
-    let max_similarity = -1;
-    let best_match_index = 0;
+    let max_similarity = -1; let best_match_index = 0;
 
-    // 수학적 유사도 비교 루프 (수정된 자체 유사도 함수 사용)
     for (let i = 0; i < base_embeddings.length; i++) {
         const similarity = calculateCosineSimilarity(speech_embedding.data, base_embeddings[i].data);
         if (similarity > max_similarity) {
@@ -117,57 +417,99 @@ async function analyzeSpeechIntent(student_speech) {
         }
     }
 
-    // 일치율이 45%를 넘겼을 때만 유효한 명령어로 판정
     if (max_similarity > 0.45) {
         const final_command = base_commands[best_match_index];
         const pct = Math.round(max_similarity * 100);
 
-        document.getElementById('ai-match').innerText = `🤖 AI 분석 결과: "${final_command}" (${pct}% 일치)`;
-        document.getElementById('status').innerText = "전송 완료!";
+        aiMatchDiv.innerText = `🤖 AI 판단: "${final_command}" (${pct}% 일치)`;
+        speechStatusDiv.innerText = "✓ 매칭 명령어 패킷 발행 완료";
 
-        // 🎯 스크래치(MQTT 서버)로 전송
-        client.publish(MQTT_TOPIC, final_command);
+        const topic = document.getElementById("topic").value;
+        client.publish(topic, final_command);
     } else {
-        document.getElementById('ai-match').innerText = `🤖 AI 분석 결과: 이해할 수 없음 (가장 비슷한 단어: ${base_commands[best_match_index]})`;
-        document.getElementById('status').innerText = "의미가 불분명하여 전송하지 않았습니다.";
+        aiMatchDiv.innerText = "🤖 AI 판단: 의도 모호함 (명령어 전송 거부)";
+        speechStatusDiv.innerText = "분석 임계값 미달로 취소됨";
     }
 }
 
-// 6. 버튼 클릭 시 작동할 스마트폰 음성 인식 함수 (전역 등록)
+// MQTT 네트워크 이벤트 리스너 링크
+client.on("connect", () => {
+    statusDiv.innerText = "● NETWORK CONNECTED";
+    statusDiv.style.borderColor = "#22c55e";
+    statusDiv.style.color = "#22c55e";
+});
+client.on("error", () => {
+    statusDiv.innerText = "● CONNECTION FAILED";
+    statusDiv.style.borderColor = "#ef4444";
+    statusDiv.style.color = "#ef4444";
+});
+
+// 자바스크립트 오디오 레코드 웹 인터페이스
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(!SpeechRecognition) alert("Web Speech 인프라를 로드할 수 없습니다.");
+
+const recognition = new SpeechRecognition();
+recognition.lang = "ko-KR";
+recognition.interimResults = true;
+recognition.continuous = false;
+
 window.startRecognition = function() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        alert("사파리(Safari) 브라우저를 사용해 주세요!");
+    if(isListening){
+        recognition.stop();
         return;
     }
+    isListening = true;
+    button.classList.add("listening");
+    speechStatusDiv.innerText = "🎙️ 실시간 보이스 트래킹 중...";
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'ko-KR';
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onstart = function() {
-        document.getElementById('status').innerText = "듣고 있습니다... 말씀하세요.";
-    };
-
-    recognition.onresult = function(event) {
-        let text = event.results[0][0].transcript;
-        document.getElementById('result').innerText = `내가 한 말: "${text}"`;
-
-        // 분석 시작
-        analyzeSpeechIntent(text);
-    };
-
-    recognition.onerror = function(e) {
-        document.getElementById('status').innerText = "에러 발생: " + e.error;
-    };
-
+    resultDiv.innerText = "";
+    aiMatchDiv.innerText = "";
+    resultDiv.style.color = "inherit";
+    resultDiv.setAttribute('data-has-text', 'true');
     recognition.start();
 };
 
-// 최초 로딩 시 AI 엔진 실행
-initAI();
-</script>
+button.onclick = window.startRecognition;
 
+recognition.onresult = (event) => {
+    let realtimeText = "";
+    for(let i = 0; i < event.results.length; i++){
+        realtimeText += event.results[i][0].transcript;
+    }
+    resultDiv.innerText = realtimeText;
+
+    const lastResult = event.results[event.results.length - 1];
+    if(lastResult.isFinal){
+        const finalText = lastResult[0].transcript;
+        analyzeSpeechIntent(finalText);
+    }
+};
+
+recognition.onend = () => {
+    isListening = false;
+    button.classList.remove("listening");
+    setTimeout(() => {
+        if(!isListening && speechStatusDiv.innerText !== "✓ 매칭 명령어 패킷 발행 완료"){
+            speechStatusDiv.innerText = "대시보드 링크 스탠바이";
+            const selected = document.getElementById("uiPreset").value;
+            if(resultDiv.innerText.trim() === "" || resultDiv.innerText === currentPlaceholder) {
+                resultDiv.innerText = currentPlaceholder;
+                resultDiv.style.color = appPresets[selected].sub;
+                resultDiv.removeAttribute('data-has-text');
+            }
+        }
+    }, 2000);
+};
+
+recognition.onerror = (event) => {
+    speechStatusDiv.innerText = "FAIL: " + event.error;
+    isListening = false;
+    button.classList.remove("listening");
+};
+
+// 초기 가동 런타임 엔트리 포인트
+initAI();
+window.changePresetEngine();
+</script>
 </body>
 </html>
