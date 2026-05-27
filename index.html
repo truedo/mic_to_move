@@ -1,277 +1,329 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>음성 MQTT 제어</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Zumi Voice Controller</title>
 
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
 <style>
+    /* 기본 모바일 레이아웃 리셋 */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-body{
-    font-family:sans-serif;
-    padding:20px;
-    max-width:500px;
-}
+    body {
+        background-color: #121214;
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 100vh;
+        padding: 24px;
+        overflow: hidden;
+    }
 
-h2{
-    margin-bottom:20px;
-}
+    /* 상단 헤더 및 설정 세션 */
+    header {
+        width: 100%;
+        text-align: center;
+        margin-top: 10px;
+    }
 
-label{
-    display:block;
-    margin-top:15px;
-    margin-bottom:5px;
-}
+    h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        margin-bottom: 20px;
+        color: #e4e4e7;
+    }
 
-input{
-    width:100%;
-    font-size:18px;
-    padding:10px;
-    box-sizing:border-box;
-}
+    .config-box {
+        background: #1e1e24;
+        padding: 14px 18px;
+        border-radius: 16px;
+        border: 1px solid #2a2a32;
+        text-align: left;
+    }
 
-button{
-    width:100%;
-    margin-top:20px;
-    padding:20px;
-    font-size:24px;
-}
+    label {
+        font-size: 0.8rem;
+        color: #a1a1aa;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: block;
+        margin-bottom: 6px;
+    }
 
-#status{
-    margin-top:20px;
-    font-size:20px;
-    color:green;
-}
+    input {
+        width: 100%;
+        background: transparent;
+        border: none;
+        color: #38bdf8; /* 포인트 컬러 (스카이 블루) */
+        font-size: 1.1rem;
+        font-weight: 600;
+        outline: none;
+    }
 
-#speechStatus{
-    margin-top:10px;
-    font-size:22px;
-    color:red;
-}
+    /* 중앙 상태 및 결과 창 */
+    .main-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        margin: 40px 0;
+    }
 
-#result{
-    margin-top:20px;
-    min-height:80px;
-    padding:15px;
-    background:#f0f0f0;
-    font-size:28px;
-    border-radius:10px;
-}
+    #status {
+        font-size: 0.9rem;
+        padding: 6px 14px;
+        border-radius: 20px;
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        margin-bottom: 30px;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
 
+    #status.connected {
+        background: rgba(34, 197, 94, 0.1);
+        color: #22c55e;
+    }
+
+    #speechStatus {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #a1a1aa;
+        margin-bottom: 15px;
+    }
+
+    #result {
+        width: 100%;
+        max-width: 400px;
+        min-height: 100px;
+        text-align: center;
+        font-size: 1.4rem;
+        font-weight: 500;
+        line-height: 1.5;
+        color: #f4f4f5;
+        word-break: keep-all;
+    }
+
+    #result:empty::before {
+        content: "하단의 마이크를 눌러\AZumi에게 명령해보세요.";
+        white-space: pre-line;
+        color: #52525b;
+        font-size: 1.1rem;
+    }
+
+    /* 하단 음성 인식 버튼 컨트롤러 */
+    .controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    .mic-btn {
+        width: 88px;
+        height: 88px;
+        border-radius: 50%;
+        background: #3b82f6;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+        transition: all 0.3s ease;
+        position: relative;
+        z-index: 2;
+    }
+
+    .mic-btn:active {
+        transform: scale(0.95);
+    }
+
+    .mic-btn svg {
+        width: 34px;
+        height: 34px;
+        fill: #ffffff;
+        transition: all 0.3s ease;
+    }
+
+    /* 녹음 중일 때 버튼 스타일 변화 및 애니메이션 파동 */
+    .mic-btn.listening {
+        background: #ef4444;
+        box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+    }
+
+    .pulse-ring {
+        position: absolute;
+        width: 88px;
+        height: 88px;
+        border-radius: 50%;
+        background: rgba(239, 68, 68, 0.4);
+        z-index: 1;
+        opacity: 0;
+    }
+
+    .mic-btn.listening + .pulse-ring {
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+            opacity: 0.6;
+        }
+        100% {
+            transform: scale(1.6);
+            opacity: 0;
+        }
+    }
 </style>
-
 </head>
 <body>
 
-<h2>🎤 음성 MQTT 제어</h2>
+<header>
+    <h2>🤖 Zumi Voice Control</h2>
+    <div class="config-box">
+        <label>MQTT 토픽 경로</label>
+        <input type="text" id="topic" value="student01/cmd" autocomplete="off" spellcheck="false">
+    </div>
+</header>
 
-<label>MQTT Topic</label>
+<main class="main-container">
+    <div id="status">MQTT 연결 대기중...</div>
 
-<input
-    type="text"
-    id="topic"
-    value="student01/cmd"
->
+    <div id="speechStatus">준비 완료</div>
 
-<button id="voiceButton">
-    말하기 시작
-</button>
+    <div id="result"></div>
+</main>
 
-<div id="status">
-MQTT 연결중...
-</div>
-
-<div id="speechStatus">
-대기중
-</div>
-
-<div id="result">
-여기에 음성이 표시됩니다.
+<div class="controls">
+    <button id="voiceButton" class="mic-btn">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+        </svg>
+    </button>
+    <div class="pulse-ring"></div>
 </div>
 
 <script>
-
 // ----------------------------
-// MQTT 연결
+// MQTT 연결 설정
 // ----------------------------
+const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
 
-const client = mqtt.connect(
-    "wss://broker.emqx.io:8084/mqtt"
-);
-
-const statusDiv =
-    document.getElementById("status");
-
-const speechStatusDiv =
-    document.getElementById("speechStatus");
-
-const resultDiv =
-    document.getElementById("result");
-
-const button =
-    document.getElementById("voiceButton");
+const statusDiv = document.getElementById("status");
+const speechStatusDiv = document.getElementById("speechStatus");
+const resultDiv = document.getElementById("result");
+const button = document.getElementById("voiceButton");
 
 let isListening = false;
 
-// MQTT 연결 성공
+// MQTT 상태 관리 UI 변경
 client.on("connect", () => {
-
-    statusDiv.innerText =
-        "MQTT 연결 성공";
+    statusDiv.innerText = "● MQTT 서버 연결됨";
+    statusDiv.classList.add("connected");
 });
 
-// MQTT 오류
 client.on("error", () => {
-
-    statusDiv.innerText =
-        "MQTT 연결 실패";
+    statusDiv.innerText = "● MQTT 연결 실패";
+    statusDiv.classList.remove("connected");
 });
 
 // ----------------------------
-// 음성 인식 준비
+// Web Speech API 준비
 // ----------------------------
-
-const SpeechRecognition =
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition;
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if(!SpeechRecognition){
-
-    alert(
-        "이 브라우저는 음성인식을 지원하지 않습니다."
-    );
+    alert("이 브라우저는 음성인식을 지원하지 않습니다. 크롬 또는 삼성인터넷 앱을 사용해 주세요.");
 }
 
-const recognition =
-    new SpeechRecognition();
-
+const recognition = new SpeechRecognition();
 recognition.lang = "ko-KR";
-
-// 실시간 표시용
 recognition.interimResults = true;
-
 recognition.continuous = false;
 
 // ----------------------------
-// 버튼 처리
+// 마이크 버튼 제어 (클릭으로 시작/종료 토글 가능)
 // ----------------------------
-
 button.onclick = () => {
-
-    // 이미 듣는 중이면 무시
     if(isListening){
+        recognition.stop();
         return;
     }
 
     isListening = true;
-
-    button.disabled = true;
-
-    button.innerText =
-        "듣는 중...";
-
-    speechStatusDiv.innerText =
-        "🎤 음성 입력중";
-
-    resultDiv.innerText =
-        "";
+    button.classList.add("listening");
+    speechStatusDiv.innerText = "듣고 있습니다...";
+    speechStatusDiv.style.color = "#ef4444";
+    resultDiv.innerText = "";
 
     recognition.start();
 };
 
 // ----------------------------
-// 음성 결과
+// 음성 수신 및 MQTT 발행
 // ----------------------------
-
 recognition.onresult = (event) => {
-
     let realtimeText = "";
 
-    for(let i=0; i<event.results.length; i++){
-
-        realtimeText +=
-            event.results[i][0].transcript;
+    for(let i = 0; i < event.results.length; i++){
+        realtimeText += event.results[i][0].transcript;
     }
 
-    // 실시간 화면 표시
-    resultDiv.innerText =
-        realtimeText;
+    // 화면에 실시간 받아쓰기 노출
+    resultDiv.innerText = realtimeText;
 
-    // 마지막 결과
-    const lastResult =
-        event.results[event.results.length - 1];
+    const lastResult = event.results[event.results.length - 1];
 
-    // 최종 결과면 MQTT 전송
+    // 말이 완전히 끝났을 때만 MQTT로 발송
     if(lastResult.isFinal){
+        const finalText = lastResult[0].transcript;
+        const topic = document.getElementById("topic").value;
 
-        const finalText =
-            lastResult[0].transcript;
+        client.publish(topic, finalText);
+        console.log("Zumi 전송 명령:", finalText);
 
-        const topic =
-            document.getElementById(
-                "topic"
-            ).value;
-
-        client.publish(
-            topic,
-            finalText
-        );
-
-        console.log(
-            "MQTT 전송:",
-            finalText
-        );
-
-        speechStatusDiv.innerText =
-            "📤 전송 완료";
+        speechStatusDiv.innerText = "✓ 성공적으로 전송됨";
+        speechStatusDiv.style.color = "#22c55e";
     }
 };
 
 // ----------------------------
-// 종료 처리
+// 대기 상태 복원
 // ----------------------------
-
 recognition.onend = () => {
-
     isListening = false;
+    button.classList.remove("listening");
 
-    button.disabled = false;
-
-    button.innerText =
-        "말하기 시작";
-
-    // 전송완료 상태 유지
     setTimeout(() => {
-
         if(!isListening){
-
-            speechStatusDiv.innerText =
-                "대기중";
+            speechStatusDiv.innerText = "준비 완료";
+            speechStatusDiv.style.color = "#a1a1aa";
         }
-
-    }, 1000);
+    }, 1500);
 };
-
-// ----------------------------
-// 에러 처리
-// ----------------------------
 
 recognition.onerror = (event) => {
-
     console.log(event.error);
-
-    speechStatusDiv.innerText =
-        "에러: " + event.error;
-
+    speechStatusDiv.innerText = "오류 발생: " + event.error;
+    speechStatusDiv.style.color = "#ef4444";
     isListening = false;
-
-    button.disabled = false;
-
-    button.innerText =
-        "말하기 시작";
+    button.classList.remove("listening");
 };
-
 </script>
 
 </body>
