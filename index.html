@@ -14,16 +14,19 @@
     #status { color: #666; margin-top: 20px; font-weight: bold; }
     #result { margin-top: 10px; font-size: 20px; color: blue; }
     #ai-match { margin-top: 10px; font-size: 24px; color: green; font-weight: bold; }
+    #loading-zone { margin-bottom: 20px; }
 </style>
 </head>
 <body>
 
 <h2>AI 음성 제어 테스트 (문장 유사도)</h2>
+
 <div id="loading-zone">
     <p id="loading-msg">🤖 AI 모델 파일을 다운로드하는 중... (최초 1회만 진행)</p>
     <progress id="loading-bar" value="0" max="100" style="width: 300px; height: 20px;"></progress>
     <span id="loading-pct">0%</span>
 </div>
+
 <button id="start-btn" onclick="startRecognition()" disabled>말하기 시작</button>
 
 <p id="status">대기 중...</p>
@@ -32,42 +35,46 @@
 <p id="ai-match">🤖 AI 분석 결과: -</p>
 
 <script type="module">
-// 웹 환경에서 안전하게 Transformers.js와 수학 계산 함수를 가져옵니다.
-import { pipeline, cosine_similarity } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.0';
+// 2. 에러 수정: 오류가 나던 cosine_similarity 대신 기본 pipeline만 안전하게 가져옵니다.
+import { env, pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.0';
 
-// EMQX 공용 MQTT 서버 연결
-const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-const MQTT_TOPIC = "mic_to_move/test_room"; // 학생마다 다르게 줄 방 이름
-
-let extractor = null;
-
-// 3. 우리가 스크래치 로봇에게 시킬 '기준 명령어' 정의
-// 페이지가 켜지자마자 AI 모델을 브라우저 메모리에 로드합니다. (약 23MB)
-// 스크립트 상단 import 문 바로 아래에 이 설정을 추가하면
-// 브라우저가 로컬 경로를 찾지 않고 허깅페이스 CDN에서 파일을 곧바로 안정적으로 다운로드합니다.
-import { env, pipeline, cosine_similarity } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.0';
+// 허깅페이스 CDN에서 직접 모델 파일을 받도록 설정 고정
 env.allowLocalModels = false;
 
+// 3. 통신 및 데이터 전역 변수 설정
 const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-const MQTT_TOPIC = "mic_to_move/test_room";
+const MQTT_TOPIC = "mic_to_move/test_room"; // ⚠️ 수업 시 학생마다 다르게 설정 유도
 
 let extractor = null;
 const base_commands = ["앞으로 가라", "뒤로 가라", "오른쪽으로 돌아", "왼쪽으로 돌아", "멈춰"];
 let base_embeddings = [];
 
-// 💡 실시간 다운로드 퍼센트를 표시하도록 업그레이드된 초기화 함수
+// 💡 안전한 코사인 유사도 계산 함수 직접 구현
+// 두 배열(벡터)의 수학적 거리(유사도)를 비교하여 -1 ~ 1 사이의 값을 반환합니다.
+function calculateCosineSimilarity(query, base) {
+    let dotProduct = 0.0;
+    let normA = 0.0;
+    let normB = 0.0;
+    for (let i = 0; i < query.length; i++) {
+        dotProduct += query[i] * base[i];
+        normA += query[i] * query[i];
+        normB += base[i] * base[i];
+    }
+    if (normA === 0 || normB === 0) return 0;
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+// 4. AI 모델 다운로드 및 초기화 함수
 async function initAI() {
     const progressBar = document.getElementById('loading-bar');
     const progressPct = document.getElementById('loading-pct');
     const loadingZone = document.getElementById('loading-zone');
 
     try {
-        // pipeline의 3번째 인자에 콜백 함수를 넣으면 다운로드 상황을 실시간으로 추적할 수 있습니다.
+        // 실시간 progress를 감수하여 퍼센트 반영
         extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
             progress_callback: (data) => {
-                // 모델 파일 전송 상태가 'progress'일 때만 게이지를 올립니다.
                 if (data.status === 'progress') {
-                    // data.progress는 0~100 사이의 숫자로 들어옵니다.
                     const progressValue = Math.round(data.progress);
                     progressBar.value = progressValue;
                     progressPct.innerText = `${progressValue}%`;
@@ -75,13 +82,13 @@ async function initAI() {
             }
         });
 
-        // 모델 다운로드가 끝나면 기준 명령어 수치화 진행
+        // 다운로드 성공 후 기준 명령어 수치화 진행
         document.getElementById('loading-msg').innerText = "🤖 명령어 데이터를 분석하는 중...";
         base_embeddings = await Promise.all(
             base_commands.map(cmd => extractor(cmd, { pooling: 'mean', normalize: true }))
         );
 
-        // 모든 준비가 완료되면 로딩 UI를 숨기고 버튼 활성화
+        // 로딩 영역 숨기고 말하기 버튼 활성화
         loadingZone.style.display = 'none';
         document.getElementById('start-btn').disabled = false;
         document.getElementById('status').innerText = "AI 준비 완료! 버튼을 누르고 말씀하세요.";
@@ -91,26 +98,26 @@ async function initAI() {
     }
 }
 
-// 음성 인식 결과를 받아 의미를 비교하는 핵심 함수
+// 5. 음성 의도 분석 및 MQTT 전송 함수
 async function analyzeSpeechIntent(student_speech) {
     document.getElementById('status').innerText = "🤖 AI가 의미를 분석하는 중...";
 
-    // 학생들이 한 말을 AI 숫자로 변환
+    // 학생이 한 말을 수치화(임베딩)
     const speech_embedding = await extractor(student_speech, { pooling: 'mean', normalize: true });
 
     let max_similarity = -1;
     let best_match_index = 0;
 
-    // 학생들이 한 말과 기준 명령어들의 의미를 수학적으로 비교 (코사인 유사도)
+    // 수학적 유사도 비교 루프 (수정된 자체 유사도 함수 사용)
     for (let i = 0; i < base_embeddings.length; i++) {
-        const similarity = cosine_similarity(speech_embedding.data, base_embeddings[i].data);
+        const similarity = calculateCosineSimilarity(speech_embedding.data, base_embeddings[i].data);
         if (similarity > max_similarity) {
             max_similarity = similarity;
             best_match_index = i;
         }
     }
 
-    // 유사도가 최소 45%(0.45)는 넘어야 정상적인 명령어로 인정합니다.
+    // 일치율이 45%를 넘겼을 때만 유효한 명령어로 판정
     if (max_similarity > 0.45) {
         const final_command = base_commands[best_match_index];
         const pct = Math.round(max_similarity * 100);
@@ -118,7 +125,7 @@ async function analyzeSpeechIntent(student_speech) {
         document.getElementById('ai-match').innerText = `🤖 AI 분석 결과: "${final_command}" (${pct}% 일치)`;
         document.getElementById('status').innerText = "전송 완료!";
 
-        // 🎯 스크래치가 구독 중인 EMQX 서버로 정제된 단어만 쏙 보냅니다!
+        // 🎯 스크래치(MQTT 서버)로 전송
         client.publish(MQTT_TOPIC, final_command);
     } else {
         document.getElementById('ai-match').innerText = `🤖 AI 분석 결과: 이해할 수 없음 (가장 비슷한 단어: ${base_commands[best_match_index]})`;
@@ -126,7 +133,7 @@ async function analyzeSpeechIntent(student_speech) {
     }
 }
 
-// 음성 인식 시작 (전역 함수로 등록하여 onclick에서 호출 가능하게 함)
+// 6. 버튼 클릭 시 작동할 스마트폰 음성 인식 함수 (전역 등록)
 window.startRecognition = function() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -147,7 +154,7 @@ window.startRecognition = function() {
         let text = event.results[0][0].transcript;
         document.getElementById('result').innerText = `내가 한 말: "${text}"`;
 
-        // 음성 인식 텍스트를 AI 분석 함수로 전달!
+        // 분석 시작
         analyzeSpeechIntent(text);
     };
 
@@ -158,7 +165,7 @@ window.startRecognition = function() {
     recognition.start();
 };
 
-// 웹페이지 시작 시 AI 초기화 실행
+// 최초 로딩 시 AI 엔진 실행
 initAI();
 </script>
 
