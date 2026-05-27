@@ -1,301 +1,100 @@
-# 스마트폰 스타일 MQTT 음성 제어 UI
-
-```html
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>음성 MQTT 제어</title>
 
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
 <style>
 
-*{
-    box-sizing:border-box;
-}
-
 body{
-    margin:0;
-    background:#111827;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    color:white;
-
-    display:flex;
-    justify-content:center;
-    align-items:center;
-
-    min-height:100vh;
-
+    font-family:sans-serif;
     padding:20px;
+    max-width:500px;
 }
 
-.phone{
-    width:360px;
-    max-width:100%;
-
-    background:#1f2937;
-
-    border-radius:40px;
-
-    padding:20px;
-
-    box-shadow:
-        0 0 0 8px #000,
-        0 20px 60px rgba(0,0,0,0.5);
-
-    position:relative;
-
-    overflow:hidden;
+h2{
+    margin-bottom:20px;
 }
 
-.notch{
-    width:140px;
-    height:28px;
-
-    background:black;
-
-    border-radius:0 0 20px 20px;
-
-    position:absolute;
-
-    top:0;
-    left:50%;
-
-    transform:translateX(-50%);
-}
-
-.header{
-    margin-top:30px;
-
-    text-align:center;
-}
-
-.header h1{
-    margin:0;
-    font-size:28px;
-}
-
-.header p{
-    color:#9ca3af;
-    margin-top:8px;
-}
-
-.card{
-    margin-top:20px;
-
-    background:#374151;
-
-    border-radius:20px;
-
-    padding:18px;
-}
-
-.label{
-    font-size:14px;
-    color:#9ca3af;
-    margin-bottom:8px;
+label{
+    display:block;
+    margin-top:15px;
+    margin-bottom:5px;
 }
 
 input{
     width:100%;
-
-    border:none;
-
-    border-radius:14px;
-
-    padding:14px;
-
     font-size:18px;
-
-    background:#111827;
-
-    color:white;
+    padding:10px;
+    box-sizing:border-box;
 }
 
-.statusBox{
-    margin-top:15px;
-
-    background:#111827;
-
-    border-radius:16px;
-
-    padding:14px;
-
-    font-size:16px;
-}
-
-.status{
-    color:#34d399;
-}
-
-.speechStatus{
-    margin-top:8px;
-    color:#fbbf24;
-}
-
-.result{
-    margin-top:20px;
-
-    background:#111827;
-
-    border-radius:20px;
-
-    min-height:120px;
-
-    padding:20px;
-
-    font-size:28px;
-
-    line-height:1.4;
-
-    word-break:break-word;
-}
-
-.voiceButton{
+button{
     width:100%;
-
-    margin-top:25px;
-
-    border:none;
-
-    border-radius:22px;
-
-    padding:20px;
-
-    font-size:24px;
-
-    font-weight:bold;
-
-    color:white;
-
-    background:linear-gradient(
-        135deg,
-        #2563eb,
-        #7c3aed
-    );
-
-    cursor:pointer;
-
-    transition:0.2s;
-}
-
-.voiceButton:active{
-    transform:scale(0.97);
-}
-
-.voiceButton:disabled{
-    opacity:0.5;
-    cursor:not-allowed;
-}
-
-.micAnimation{
-    width:80px;
-    height:80px;
-
-    margin:20px auto 0 auto;
-
-    border-radius:50%;
-
-    background:#ef4444;
-
-    display:none;
-
-    animation:pulse 1s infinite;
-}
-
-@keyframes pulse{
-
-    0%{
-        transform:scale(1);
-        opacity:1;
-    }
-
-    50%{
-        transform:scale(1.15);
-        opacity:0.6;
-    }
-
-    100%{
-        transform:scale(1);
-        opacity:1;
-    }
-}
-
-.footer{
-    text-align:center;
-
     margin-top:20px;
+    padding:20px;
+    font-size:24px;
+}
 
-    color:#6b7280;
+#status{
+    margin-top:20px;
+    font-size:20px;
+    color:green;
+}
 
-    font-size:12px;
+#speechStatus{
+    margin-top:10px;
+    font-size:22px;
+    color:red;
+}
+
+#result{
+    margin-top:20px;
+    min-height:80px;
+    padding:15px;
+    background:#f0f0f0;
+    font-size:28px;
+    border-radius:10px;
 }
 
 </style>
+
 </head>
 <body>
 
-<div class="phone">
+<h2>🎤 음성 MQTT 제어</h2>
 
-    <div class="notch"></div>
+<label>MQTT Topic</label>
 
-    <div class="header">
-        <h1>🎤 Voice MQTT</h1>
-        <p>스마트폰 음성 제어</p>
-    </div>
+<input
+    type="text"
+    id="topic"
+    value="student01/cmd"
+>
 
-    <div class="card">
+<button id="voiceButton">
+    말하기 시작
+</button>
 
-        <div class="label">
-            MQTT Topic
-        </div>
+<div id="status">
+MQTT 연결중...
+</div>
 
-        <input
-            type="text"
-            id="topic"
-            value="student01/cmd"
-        >
+<div id="speechStatus">
+대기중
+</div>
 
-        <div class="statusBox">
-
-            <div class="status" id="status">
-                MQTT 연결중...
-            </div>
-
-            <div class="speechStatus" id="speechStatus">
-                대기중
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="micAnimation" id="micAnimation"></div>
-
-    <div class="result" id="result">
-        여기에 음성이 표시됩니다.
-    </div>
-
-    <button
-        class="voiceButton"
-        id="voiceButton"
-    >
-        🎙️ 말하기 시작
-    </button>
-
-    <div class="footer">
-        MQTT + Speech Recognition
-    </div>
-
+<div id="result">
+여기에 음성이 표시됩니다.
 </div>
 
 <script>
 
-// ----------------------
+// ----------------------------
 // MQTT 연결
-// ----------------------
+// ----------------------------
 
 const client = mqtt.connect(
     "wss://broker.emqx.io:8084/mqtt"
@@ -313,26 +112,25 @@ const resultDiv =
 const button =
     document.getElementById("voiceButton");
 
-const micAnimation =
-    document.getElementById("micAnimation");
-
 let isListening = false;
 
+// MQTT 연결 성공
 client.on("connect", () => {
 
     statusDiv.innerText =
-        "🟢 MQTT 연결 성공";
+        "MQTT 연결 성공";
 });
 
+// MQTT 오류
 client.on("error", () => {
 
     statusDiv.innerText =
-        "🔴 MQTT 연결 실패";
+        "MQTT 연결 실패";
 });
 
-// ----------------------
-// 음성 인식
-// ----------------------
+// ----------------------------
+// 음성 인식 준비
+// ----------------------------
 
 const SpeechRecognition =
     window.SpeechRecognition ||
@@ -350,16 +148,18 @@ const recognition =
 
 recognition.lang = "ko-KR";
 
+// 실시간 표시용
 recognition.interimResults = true;
 
 recognition.continuous = false;
 
-// ----------------------
-// 버튼
-// ----------------------
+// ----------------------------
+// 버튼 처리
+// ----------------------------
 
 button.onclick = () => {
 
+    // 이미 듣는 중이면 무시
     if(isListening){
         return;
     }
@@ -369,42 +169,40 @@ button.onclick = () => {
     button.disabled = true;
 
     button.innerText =
-        "🎧 듣는 중...";
+        "듣는 중...";
 
     speechStatusDiv.innerText =
         "🎤 음성 입력중";
 
-    resultDiv.innerText = "";
-
-    micAnimation.style.display = "block";
+    resultDiv.innerText =
+        "";
 
     recognition.start();
 };
 
-// ----------------------
-// 결과 처리
-// ----------------------
+// ----------------------------
+// 음성 결과
+// ----------------------------
 
 recognition.onresult = (event) => {
 
     let realtimeText = "";
 
-    for(let i=0;
-        i<event.results.length;
-        i++){
+    for(let i=0; i<event.results.length; i++){
 
         realtimeText +=
             event.results[i][0].transcript;
     }
 
+    // 실시간 화면 표시
     resultDiv.innerText =
         realtimeText;
 
+    // 마지막 결과
     const lastResult =
-        event.results[
-            event.results.length - 1
-        ];
+        event.results[event.results.length - 1];
 
+    // 최종 결과면 MQTT 전송
     if(lastResult.isFinal){
 
         const finalText =
@@ -420,19 +218,19 @@ recognition.onresult = (event) => {
             finalText
         );
 
-        speechStatusDiv.innerText =
-            "📤 MQTT 전송 완료";
-
         console.log(
-            "전송:",
+            "MQTT 전송:",
             finalText
         );
+
+        speechStatusDiv.innerText =
+            "📤 전송 완료";
     }
 };
 
-// ----------------------
-// 종료
-// ----------------------
+// ----------------------------
+// 종료 처리
+// ----------------------------
 
 recognition.onend = () => {
 
@@ -441,10 +239,9 @@ recognition.onend = () => {
     button.disabled = false;
 
     button.innerText =
-        "🎙️ 말하기 시작";
+        "말하기 시작";
 
-    micAnimation.style.display = "none";
-
+    // 전송완료 상태 유지
     setTimeout(() => {
 
         if(!isListening){
@@ -453,57 +250,29 @@ recognition.onend = () => {
                 "대기중";
         }
 
-    }, 1200);
+    }, 1000);
 };
 
-// ----------------------
+// ----------------------------
 // 에러 처리
-// ----------------------
+// ----------------------------
 
 recognition.onerror = (event) => {
 
     console.log(event.error);
 
     speechStatusDiv.innerText =
-        "⚠️ 에러: " + event.error;
+        "에러: " + event.error;
 
     isListening = false;
 
     button.disabled = false;
 
     button.innerText =
-        "🎙️ 말하기 시작";
-
-    micAnimation.style.display = "none";
+        "말하기 시작";
 };
 
 </script>
 
 </body>
 </html>
-```
-
-## 추가된 UI 요소
-
-* 스마트폰 프레임 느낌
-* 상단 노치(notch)
-* 둥근 카드 UI
-* 말하는 중 애니메이션
-* 모바일 스타일 버튼
-* 상태 표시 강화
-* 반응형 레이아웃
-
-## 추천 테스트 환경
-
-* Android + Chrome 계열 브라우저
-* iPhone + Safari
-* 같은 WiFi 환경
-* Scratch MQTT Subscribe 연결
-
-## 추천 Topic 예시
-
-```text
-student01/cmd
-student02/cmd
-robot/teamA
-```
