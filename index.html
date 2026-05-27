@@ -2,42 +2,145 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>음성 인식</title>
+<title>음성 MQTT 테스트</title>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+body{
+    font-family: sans-serif;
+    padding:20px;
+}
+
+button{
+    font-size:24px;
+    padding:20px;
+}
+
+#result{
+    margin-top:20px;
+    font-size:30px;
+    color:blue;
+}
+
+#status{
+    margin-top:10px;
+    color:green;
+}
+</style>
+
 </head>
 <body>
 
-<h2>음성 입력 테스트</h2>
+<h2>음성 → MQTT 테스트</h2>
 
-<button onclick="startRecognition()">말하기 시작</button>
+<button onclick="startVoice()">
+🎤 말하기 시작
+</button>
 
-<p id="result"></p>
+<div id="status">
+MQTT 연결중...
+</div>
+
+<div id="result">
+대기중
+</div>
 
 <script>
-function startRecognition() {
+
+// 학생별로 바꾸기 추천
+const TOPIC = "student01/cmd";
+
+// MQTT 연결
+const client = mqtt.connect(
+    "wss://broker.emqx.io:8084/mqtt"
+);
+
+// 연결 성공
+client.on("connect", () => {
+
+    console.log("MQTT 연결 성공");
+
+    document.getElementById(
+        "status"
+    ).innerText = "MQTT 연결 성공";
+});
+
+// 연결 실패
+client.on("error", (err) => {
+
+    console.log(err);
+
+    document.getElementById(
+        "status"
+    ).innerText = "MQTT 연결 실패";
+});
+
+function startVoice(){
 
     const SpeechRecognition =
         window.SpeechRecognition ||
         window.webkitSpeechRecognition;
 
-    const recognition = new SpeechRecognition();
+    // 지원 확인
+    if(!SpeechRecognition){
 
-    recognition.lang = 'ko-KR';
-    recognition.interimResults = true;
-    recognition.continuous = true;
+        alert("이 브라우저는 음성인식을 지원하지 않습니다.");
+        return;
+    }
 
-    recognition.onresult = function(event) {
+    const recognition =
+        new SpeechRecognition();
 
-        let text = '';
+    recognition.lang = "ko-KR";
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            text += event.results[i][0].transcript;
-        }
+    recognition.interimResults = false;
 
-        document.getElementById('result').innerText = text;
-    };
+    recognition.maxAlternatives = 1;
 
     recognition.start();
+
+    document.getElementById(
+        "result"
+    ).innerText = "듣는 중...";
+
+    // 음성 결과
+    recognition.onresult = (event) => {
+
+        const result =
+            event.results[event.results.length - 1];
+
+        // 최종 결과인지 확인
+        if(result.isFinal){
+
+            const text =
+                result[0].transcript;
+
+            console.log("최종:", text);
+
+            document.getElementById(
+                "result"
+            ).innerText = text;
+
+            // 최종 결과만 전송
+            client.publish(
+                TOPIC,
+                text
+            );
+        }
+    };
+
+    recognition.onerror = (event) => {
+
+        console.log(event.error);
+
+        document.getElementById(
+            "result"
+        ).innerText =
+            "에러: " + event.error;
+    };
 }
+
 </script>
 
 </body>
