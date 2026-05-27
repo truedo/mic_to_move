@@ -8,18 +8,21 @@
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
 <style>
-    /* 기본 모바일 레이아웃 */
+    /* 기본 모바일 레이아웃 최적화 */
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif; }
-    body { background-color: #0b0f19; color: #ffffff; display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; padding: 20px; overflow: hidden; position: relative; }
+
+    body {
+        background-color: #0b0f19; color: #ffffff; display: flex; flex-direction: column;
+        justify-content: space-between; min-height: 100vh; padding: 12px; overflow: hidden; position: relative;
+    }
     header, main, .controls { position: relative; z-index: 10; }
 
     /* 프리셋 셀렉터 전용 바 */
-    .preset-container { margin-bottom: 12px; }
+    .preset-container { margin-bottom: 8px; }
     .preset-select {
-        width: 100%; padding: 14px; border-radius: 12px; background-color: #1e293b; border: 2px solid rgba(255, 255, 255, 0.2);
-        color: #ffffff; font-size: 0.95rem; font-weight: bold; outline: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; appearance: none; -webkit-appearance: none;
+        width: 100%; padding: 10px 14px; border-radius: 10px; background-color: #1e293b; border: 2px solid rgba(255, 255, 255, 0.2);
+        color: #ffffff; font-size: 0.9rem; font-weight: bold; outline: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; appearance: none; -webkit-appearance: none;
     }
-    .preset-select option { background-color: #1e293b; color: #ffffff; font-weight: bold; padding: 14px; }
 
     /* 테마별 커스텀 배경 및 레이아웃 엔진 */
     .theme-screen { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); display: none; opacity: 0; }
@@ -40,50 +43,44 @@
     #screen-mars .radar-line { position: absolute; top: 50%; left: 50%; width: 350px; height: 350px; border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 50%; transform: translate(-50%, -50%); }
     #screen-mars .radar-line::before { content: ""; position: absolute; top:0; left:50%; width:2px; height:50%; background: #eab308; transform-origin: bottom center; animation: spin 4s linear infinite; }
 
-    /* 테마별 특화 대시보드 인포창 */
-    .app-dashboard { padding: 16px; border-radius: 16px; margin-top: 10px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.2); background: rgba(255, 255, 255, 0.05); }
+    /* 대시보드 인포창 */
+    .app-dashboard { padding: 12px; border-radius: 12px; margin-top: 6px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.2); background: rgba(255, 255, 255, 0.05); }
     .dash-row { display: flex; justify-content: space-between; align-items: center; }
-    .dash-meta { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.7; }
-    .dash-value { font-size: 1.2rem; font-weight: 800; }
+    .dash-meta { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.7; }
+    .dash-value { font-size: 1.05rem; font-weight: 800; }
 
     /* 공통 메인 뷰어 영역 */
-    .main-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin: 20px 0; }
-    #status { font-size: 0.8rem; padding: 5px 12px; border-radius: 20px; font-weight: bold; margin-bottom: 25px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); }
-    #speechStatus { font-size: 1.1rem; font-weight: 800; margin-bottom: 12px; color: #7084b0; }
-    #result { width: 100%; max-width: 380px; min-height: 60px; font-size: 1.4rem; font-weight: bold; line-height: 1.5; word-break: keep-all; margin-bottom: 10px; }
-    #ai-match { font-size: 1.6rem; color: #22c55e; font-weight: 900; min-height: 40px; word-break: keep-all; }
+    .main-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin: 8px 0; }
+    #status { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; font-weight: bold; margin-bottom: 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); }
+    #speechStatus { font-size: 0.95rem; font-weight: 800; margin-bottom: 6px; color: #7084b0; }
+    #result { width: 100%; max-width: 380px; min-height: 50px; font-size: 1.25rem; font-weight: bold; line-height: 1.4; word-break: keep-all; margin-bottom: 4px; }
+    #ai-match { font-size: 1.4rem; color: #22c55e; font-weight: 900; min-height: 35px; word-break: keep-all; }
 
-    /* 하단 음성인식 버튼 컨트롤러 */
-    .controls { display: flex; flex-direction: column; align-items: center; }
-    .mic-container { position: relative; width: 90px; height: 90px; }
+    /* 하단 컨트롤러 */
+    .controls { display: flex; flex-direction: column; align-items: center; width: 100%; }
+    .mic-container { position: relative; width: 70px; height: 70px; }
     .mic-btn { width: 100%; height: 100%; border-radius: 50%; border: none; outline: none; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; z-index: 5; background: #00e5ff; }
-    .mic-btn svg { width: 36px; height: 36px; fill: #ffffff; transition: all 0.3s; }
+    .mic-btn svg { width: 28px; height: 28px; fill: #ffffff; transition: all 0.3s; }
     .mic-btn:disabled { background-color: #4b5563 !important; cursor: not-allowed; opacity: 0.6; }
-    .mic-btn.listening { background: #ef4444 !important; transform: scale(1.08); box-shadow: 0 0 30px rgba(239, 68, 68, 0.6) !important; }
+    .mic-btn.listening { background: #ef4444 !important; transform: scale(1.05); box-shadow: 0 0 30px rgba(239, 68, 68, 0.6) !important; }
     .mic-btn.listening svg { animation: shake 0.4s infinite alternate; }
     .pulse-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background: rgba(239, 68, 68, 0.4); opacity: 0; }
     .mic-btn.listening + .pulse-ring { animation: pulse 1.3s infinite linear; }
 
-    /* 💡 [새로 추가] 민감도 설정 슬라이더 위젯 바 스타일 */
+    /* 민감도 설정 슬라이더 위젯 바 */
     .slider-box {
-        width: 260px; margin-top: 15px; background: rgba(255, 255, 255, 0.05);
-        padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
-        display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; opacity: 0.8;
+        width: 100%; max-width: 320px; margin-top: 8px; background: rgba(255, 255, 255, 0.05);
+        padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+        display: flex; flex-direction: column; gap: 2px; font-size: 0.7rem; opacity: 0.8;
     }
     .slider-row { display: flex; justify-content: space-between; font-weight: bold; }
-    .slider-box input[type="range"] { width: 100%; cursor: pointer; accent-color: #38bdf8; }
+    .slider-box input[type="range"] { width: 100%; cursor: pointer; accent-color: #38bdf8; margin-top: 2px; }
 
-    .sub-topic-box { margin-top: 10px; font-size: 0.75rem; opacity: 0.6; display: flex; align-items: center; gap: 6px; }
+    .sub-topic-box { margin-top: 8px; font-size: 0.75rem; opacity: 0.6; display: flex; align-items: center; gap: 6px; }
     .sub-topic-box input { background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.3); color: inherit; font-size: 0.75rem; outline: none; width: 120px; text-align: center; }
 
-    .ai-loading-box { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.15); padding: 12px; border-radius: 12px; margin-top: 8px; font-size: 0.85rem; text-align: center; }
-    progress { width: 100%; height: 12px; border-radius: 6px; margin-top: 6px; }
-
-    @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
-    @keyframes scan { 0% { top: 0%; } 50% { top: 100%; } 100% { top: 0%; } }
-    @keyframes floatOrb { 0% { transform: translate(-50%, -45%) scale(1); } 100% { transform: translate(-50%, -55%) scale(1.1); } }
-    @keyframes pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.8); opacity: 0; } }
-    @keyframes shake { 0% { transform: rotate(-6deg); } 100% { transform: rotate(6deg); } }
+    .ai-loading-box { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.15); padding: 10px; border-radius: 12px; margin-top: 6px; font-size: 0.8rem; text-align: center; }
+    progress { width: 100%; height: 10px; border-radius: 5px; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -113,49 +110,41 @@
                 <div class="dash-meta" id="dashMetaLabel">Autopilot 관제 시스템</div>
                 <div class="dash-value" id="dashMainValue">HUD 크루즈 모드 대기</div>
             </div>
-            <div id="dashStatusBadge" style="font-size: 1.5rem;">🏎️</div>
+            <div id="dashStatusBadge" style="font-size: 1.3rem;">🏎️</div>
         </div>
     </div>
 
     <div class="app-dashboard ai-loading-box" id="loadingZone">
-        <span id="loading-msg" style="font-weight: bold; color: #38bdf8;">🤖 AI 로봇 두뇌 로딩 중... (최초 1회)</span>
-        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+        <span id="loading-msg" style="font-weight: bold; color: #38bdf8;">🤖 AI 로봇 두뇌 로딩 중...</span>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
             <progress id="loading-bar" value="0" max="100"></progress>
-            <span id="loading-pct" style="font-weight: bold; width: 40px;">0%</span>
+            <span id="loading-pct" style="font-weight: bold; width: 35px; font-size: 0.75rem;">0%</span>
         </div>
     </div>
 
-    <div class="app-dashboard" style="margin-top: 10px; padding: 0; overflow: hidden; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1);">
-
-            <button id="accordion-toggle-btn" style="width: 100%; padding: 14px 16px; background: transparent; border: none; color: #38bdf8; font-weight: bold; font-size: 0.85rem; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; outline: none;">
-                <span>🧠 AI 명령어 훈련소 (열기/닫기)</span>
-                <span id="accordion-arrow" style="transition: transform 0.3s ease;">▼</span>
-            </button>
-
-            <div id="accordion-content" style="max-height: 0px; overflow: hidden; transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(15, 23, 42, 0.4);">
-                <div style="padding: 16px; border-top: 1px solid rgba(255,255,255,0.05);">
-                    <div class="dash-meta" style="margin-bottom: 8px; opacity: 0.8;">현재 인프라에 학습된 명령어 단어:</div>
-
-                    <div id="command-tags-container" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; max-height: 120px; overflow-y: auto; padding-right: 4px;"></div>
-
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" id="new-command-input" placeholder="새 명령어 입력 (예: 경적을 울려라)"
-                           style="flex: 1; padding: 10px; border-radius: 8px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); color: white; font-size: 0.8rem; outline: none;">
-
+    <div class="app-dashboard" style="margin-top: 6px; padding: 0; overflow: hidden; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); width: 100%;">
+        <button id="accordion-toggle-btn" style="width: 100%; padding: 10px 14px; background: transparent; border: none; color: #38bdf8; font-weight: bold; font-size: 0.8rem; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent;">
+            <span>🧠 AI 명령어 훈련소 (열기/닫기)</span>
+            <span id="accordion-arrow" style="transition: transform 0.3s ease;">▼</span>
+        </button>
+        <div id="accordion-content" style="max-height: 0px; overflow: hidden; transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(15, 23, 42, 0.4);">
+            <div style="padding: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <div id="command-tags-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; max-height: 90px; overflow-y: auto; padding-right: 4px;"></div>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <input type="text" id="new-command-input" placeholder="새 명령어 입력"
+                           style="flex: 1; padding: 8px; border-radius: 6px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); color: white; font-size: 0.75rem; outline: none;">
                     <button id="add-command-btn" onclick="window.addNewAIVocabulary()"
-                            style="padding: 10px 14px; font-size: 0.8rem; background: #38bdf8; border: none; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; white-space: nowrap;">+ 훈련</button>
-
-                    <button id="accordion-bottom-close-btn" style="padding: 10px 12px; font-size: 0.8rem; background: rgba(248, 113, 113, 0.2); border: 1px solid rgba(248, 113, 113, 0.4); border-radius: 8px; font-weight: bold; color: #f87171; cursor: pointer; white-space: nowrap;">🔼 닫기</button>
-                    </div>
+                            style="padding: 8px 12px; font-size: 0.75rem; background: #38bdf8; border: none; border-radius: 6px; font-weight: bold; color: white; cursor: pointer; white-space: nowrap;">+ 훈련</button>
+                    <button id="accordion-bottom-close-btn" style="padding: 8px 10px; font-size: 0.75rem; background: rgba(248, 113, 113, 0.2); border: 1px solid rgba(248, 113, 113, 0.4); border-radius: 6px; font-weight: bold; color: #f87171; cursor: pointer; white-space: nowrap;">🔼 닫기</button>
                 </div>
             </div>
         </div>
-
+    </div>
 </header>
 
 <main class="main-container">
     <div id="status">연결 확인 중...</div>
-    <div id="speechStatus">인공지능 인프라 빌딩 중...</div>
+    <div id="speechStatus">대시보드 링크 스탠바이</div>
     <div id="result"></div>
     <div id="ai-match"></div>
 </main>
@@ -170,13 +159,13 @@
         <div class="pulse-ring"></div>
     </div>
 
-    <div class="slider-box" style="width: 280px; margin-top: 15px;">
+    <div class="slider-box">
         <div class="slider-row">
             <span>🤖 AI 통과 기준 점수:</span>
             <span id="threshold-val" style="font-weight: 900; color: #38bdf8;">0.45</span>
         </div>
         <input type="range" id="threshold-slider" min="0.0" max="1.0" step="0.05" value="0.45">
-        <p id="threshold-desc" style="font-size: 0.7rem; margin-top: 4px; line-height: 1.3; font-weight: bold; transition: color 0.3s;"></p>
+        <p id="threshold-desc" style="font-size: 0.65rem; margin-top: 2px; line-height: 1.2; font-weight: bold; transition: color 0.3s; white-space: pre-line;"></p>
     </div>
 
     <div class="sub-topic-box" id="topicBox">
