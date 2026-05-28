@@ -400,6 +400,13 @@ if (recognition) {
         isListening = true;
         button.classList.add("listening");
         speechStatusDiv.innerText = "🎙️ 실시간 보이스 트래킹 중...";
+
+        // 🌟 [새로 추가] 마이크를 누르는 순간 로봇의 이전 답변 수신창을 깔끔하게 초기화합니다!
+        const resBox = document.getElementById('robot-response');
+        if (resBox) {
+            resBox.innerText = "🤖 로봇 응답 대기 중...";
+        }
+
         resultDiv.innerText = ""; aiMatchDiv.innerText = "";
         resultDiv.style.color = "inherit"; resultDiv.setAttribute('data-has-text', 'true');
         recognition.start();
