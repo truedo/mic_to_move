@@ -265,7 +265,7 @@ async function initAI() {
     const loadingZone = document.getElementById('loadingZone');
 
     try {
-        extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+        extractor = await pipeline('feature-extraction', AI_CONFIG.model_name, {
             progress_callback: (data) => {
                 if (data.status === 'progress' && progressBar && progressPct) {
                     const progressValue = Math.round(data.progress);
