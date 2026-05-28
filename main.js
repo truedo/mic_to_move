@@ -166,8 +166,28 @@ function renderCommandTags() {
 }
 
 window.addNewAIVocabulary = async function() {
-    const newCmd = newCommandInput.value.trim();
+    // const newCmd = newCommandInput.value.trim();
+    // if (!newCmd) { alert("추가할 명령어 단어를 입력해 주세요!"); return; }
+
+    // if (liveCommands.includes(newCmd)) { alert("이미 인공지능이 학습한 명령어입니다."); return; }
+
+    // speechStatusDiv.innerText = `🧠 AI에게 "${newCmd}" 단어를 훈련하는 중...`;
+    // button.disabled = true;
+
+
+    let newCmd = newCommandInput.value.trim();
     if (!newCmd) { alert("추가할 명령어 단어를 입력해 주세요!"); return; }
+
+    // 🌟 [새로 추가] 한글, 영문, 숫자, 공백을 제외한 모든 문장부호(?, !, ., ~ 등)를 원천 제거!
+    newCmd = newCmd.replace(/[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]/g, "");
+
+    // 🌟 [새로 추가] 기호를 빼버렸더니 아무 글자도 안 남은 빈털터리일 때 예외 처리
+    if (!newCmd.trim()) {
+        alert("물음표(?)나 기호 외에 진짜 한글 단어를 입력해 주세요!");
+        newCommandInput.value = "";
+        return;
+    }
+
     if (liveCommands.includes(newCmd)) { alert("이미 인공지능이 학습한 명령어입니다."); return; }
 
     speechStatusDiv.innerText = `🧠 AI에게 "${newCmd}" 단어를 훈련하는 중...`;
@@ -285,8 +305,15 @@ async function initAI() {
 
         if (document.getElementById('loading-msg')) { document.getElementById('loading-msg').innerText = "🤖 명령어 벡터 공간 변환 매핑 중..."; }
 
+
+        // 🌟 [수정] 기본 명령어 배열을 컴파일할 때도 특수문자를 자동으로 제거하고 AI에게 전달합니다.
         base_embeddings = await Promise.all(
-            liveCommands.map(cmd => extractor(cmd, { pooling: 'mean', normalize: true }))
+            liveCommands.map(cmd => {
+                // 1. 혹시 모를 특수문자 노이즈 제거
+                const cleanCmd = cmd.replace(/[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]/g, "");
+                // 2. 괄호 오류를 해결하고 올바르게 extractor 결과 반환 (return)
+                return extractor(cleanCmd, { pooling: 'mean', normalize: true });
+            })
         );
 
         if (loadingZone) loadingZone.style.display = 'none';
