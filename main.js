@@ -295,6 +295,13 @@ async function initAI() {
 
         const selected = document.getElementById("uiPreset").value;
         button.style.background = appPresets[selected].btnBg;
+// 🌟 [새로 추가] 앱이 처음 구동 완료되었을 때 수신창 초기 상태 주소 매핑 완료 시각화
+        const resBox = document.getElementById('robot-response');
+        if (resBox) {
+            resBox.innerText = `📡 ${AI_CONFIG.default_sub_topic} : 연결 스탠바이`;
+            // 2. 🔥 [중요] 자바스크립트 내부 변수도 설정 파일 기본값으로 완벽하게 일치시킵니다.
+            currentSubTopic = AI_CONFIG.default_sub_topic;
+        }
         speechStatusDiv.innerText = "주행 대시보드 스탠바이 완료";
     } catch (e) {
         if (document.getElementById('loading-msg')) { document.getElementById('loading-msg').innerText = "AI 컴파일 실패: " + e.message; }
@@ -331,36 +338,37 @@ async function analyzeSpeechIntent(student_speech) {
 }
 
 // ==========================================
-// 💡 [새로 추가] 수신(RX) 토픽 실시간 수정 및 동적 재구독 엔진
+// 6. 수신(RX) 채널 실시간 가변 제어 엔진
 // ==========================================
-
-// 실시간 채널 변경 핵심 처리 함수
 function remapMqttSubscription() {
     if (!subTopicInput || !client || !client.connected) return;
-
     const newSubTopic = subTopicInput.value.trim();
 
     if (!newSubTopic) {
         alert("수신(RX) 토픽 채널 주소를 입력해 주세요!");
-        subTopicInput.value = currentSubTopic; // 공백일 경우 이전 값으로 롤백
+        subTopicInput.value = currentSubTopic;
         return;
     }
 
-    // 기존 채널과 다를 때만 변경 연산 수행
     if (newSubTopic !== currentSubTopic) {
-        // 1. 기존에 듣고 있던 수신 채널 해제
         client.unsubscribe(currentSubTopic, () => {
             console.log(`기존 RX 채널 해제 완료: ${currentSubTopic}`);
         });
 
-        // 2. 새롭게 입력한 수신 채널로 갈아타기 (구독)
         client.subscribe(newSubTopic, (err) => {
             if (!err) {
                 console.log(`새로운 RX 채널 실시간 구독 완수: ${newSubTopic}`);
                 speechStatusDiv.innerText = `📡 수신 채널이 [${newSubTopic}](으)로 변경됨`;
-                currentSubTopic = newSubTopic; // 현재 상태 최신화
 
-                // 안내 모드 스탠바이 리셋
+                // 💡 [여기가 수정 핵심!] 내부 변수를 갱신한 직후, 하단 전광판의 이름표도 실시간으로 즉시 동기화해 줍니다.
+                currentSubTopic = newSubTopic;
+
+                const resBox = document.getElementById('robot-response');
+                if (resBox) {
+                    // 🎯 사용자가 수정한 새 주소 이름표를 달고 "대기 중..." 상태로 변환!
+                    resBox.innerText = `📡 ${currentSubTopic} : 대기 중...`;
+                }
+
                 setTimeout(() => { speechStatusDiv.innerText = "대시보드 링크 스탠바이"; }, 1500);
             } else {
                 speechStatusDiv.innerText = "❌ 채널 변경 실패";
@@ -395,23 +403,22 @@ const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) {
     recognition.lang = "ko-KR"; recognition.interimResults = true; recognition.continuous = false;
 
-    window.startRecognition = function() {
+window.startRecognition = function() {
         if(isListening){ recognition.stop(); return; }
         isListening = true;
         button.classList.add("listening");
         speechStatusDiv.innerText = "🎙️ 실시간 보이스 트래킹 중...";
 
-        // 🌟 [새로 추가] 마이크를 누르는 순간 로봇의 이전 답변 수신창을 깔끔하게 초기화합니다!
+        // 🌟 [수정] 마이크를 누를 때도 그냥 대기가 아니라 현재 채널명의 대기 상태임을 명시
         const resBox = document.getElementById('robot-response');
         if (resBox) {
-            resBox.innerText = "🤖 로봇 응답 대기 중...";
+            resBox.innerText = `📡 ${currentSubTopic} : 대기 중...`;
         }
 
         resultDiv.innerText = ""; aiMatchDiv.innerText = "";
         resultDiv.style.color = "inherit"; resultDiv.setAttribute('data-has-text', 'true');
         recognition.start();
     };
-
     button.onclick = window.startRecognition;
 
     recognition.onresult = (event) => {
@@ -454,21 +461,17 @@ client.on('connect', () => {
     });
 });
 // 🌟 [신규] 브로커를 통해 로봇(Zumi)이 보내온 메시지를 수신했을 때 실행되는 핸들러
+// 🌟 [수정] 고정된 "로봇:" 문구를 걷어내고 실시간 수신 채널명(currentSubTopic)을 동적으로 출력!
 client.on('message', (topic, message) => {
     const receivedMsg = message.toString();
-    const rxTopic = document.getElementById('subTopic').value;
-
-    // 내가 설정한 수신 채널(RX)로 온 메시지가 맞는지 필터링
-    if (topic === rxTopic) {
-        // 1. 화면의 로봇 응답 창에 텍스트 출력
+    if (topic === currentSubTopic) {
         const resBox = document.getElementById('robot-response');
         if (resBox) {
-            resBox.innerText = `🤖 로봇: "${receivedMsg}"`;
-            // 시각적 피드백을 위해 잠깐 반짝이는 애니메이션 효과 추가
+            // 🎯 예: "student01/res : 안녕하세요" 형태로 동적 조립
+            resBox.innerText = `📩 ${currentSubTopic} : "${receivedMsg}"`;
             resBox.style.transform = "scale(1.05)";
             setTimeout(() => { resBox.style.transform = "scale(1.0)"; }, 200);
         }
-
         // 2. [선택 사항] 로봇의 응답을 스마트폰 스피커(TTS)로 직접 읽어주고 싶다면 활성화!
         /*
         if ('speechSynthesis' in window) {
