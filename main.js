@@ -27,8 +27,11 @@ window.changePresetEngine = function() {
     document.body.style.color = config.text;
     document.getElementById("speechStatus").style.color = config.sub;
     document.getElementById("status").style.color = config.text;
-    document.getElementById("topicBox").style.color = config.text;
-
+    //    document.getElementById("topicBox").style.color = config.text;
+    const topicBox = document.getElementById("topicBox");
+    if (topicBox) {
+        topicBox.style.borderColor = (selected === "assistant" || selected === "guide") ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.2)";
+    }
     document.getElementById("dashMetaLabel").innerText = config.dMeta;
     document.getElementById("dashMainValue").innerText = config.dValue;
     document.getElementById("dashStatusBadge").innerText = config.dBadge;
