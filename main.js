@@ -320,7 +320,7 @@ async function analyzeSpeechIntent(student_speech) {
         const final_command = liveCommands[best_match_index];
         const pct = Math.round(max_similarity * 100);
         aiMatchDiv.innerText = `🤖 AI 판단: "${final_command}" (${pct}% 일치)`;
-        speechStatusDiv.innerText = "✓ 매칭 명령어 패킷 발행 완료";
+        speechStatusDiv.innerText = "✓ 명령 전송 완료";
         client.publish(topicInput.value, final_command);
     } else {
         const pct = Math.round(max_similarity * 100);

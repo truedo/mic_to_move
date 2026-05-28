@@ -54,7 +54,15 @@
     #status { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; font-weight: bold; margin-bottom: 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); }
     #speechStatus { font-size: 0.95rem; font-weight: 800; margin-bottom: 6px; color: #7084b0; }
     #result { width: 100%; max-width: 380px; min-height: 50px; font-size: 1.25rem; font-weight: bold; line-height: 1.4; word-break: keep-all; margin-bottom: 4px; }
-    #ai-match { font-size: 1.4rem; color: #22c55e; font-weight: 900; min-height: 35px; word-break: keep-all; }
+    /* 💡 [수정] 비대했던 AI 판단 글자 크기를 주변과 어울리게 슬림화 */
+    #ai-match {
+        font-size: 1.0rem;      /* 기존 1.4rem에서 주변 글씨와 맞는 크기로 축소 */
+        color: #22c55e;
+        font-weight: 800;
+        min-height: 24px;       /* 세로 폭을 줄여 화면 공간 확보 */
+        word-break: keep-all;
+        margin-top: 2px;
+    }
 
     /* 하단 컨트롤러 */
     .controls { display: flex; flex-direction: column; align-items: center; width: 100%; }
