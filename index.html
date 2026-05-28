@@ -93,8 +93,8 @@
 <div id="screen-mars" class="theme-screen"><div class="radar-line"></div></div>
 
 <header>
-<div class="preset-container" style="display: flex; gap: 8px; align-items: center; width: 100%;">
-        <select id="uiPreset" class="preset-select" onchange="window.changePresetEngine()" style="flex: 1.2; padding: 10px 8px; font-size: 0.8rem;">
+<div class="preset-container" style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
+        <select id="uiPreset" class="preset-select" onchange="window.changePresetEngine()" style="width: 100%; padding: 10px 8px; font-size: 0.8rem;">
             <option value="smartcar">🏎️ [스마트카] Autopilot 주행 스크린</option>
             <option value="taxi">🚖 [AI 택시] T-Map 실시간 배차 보드</option>
             <option value="assistant">🔮 [로봇비서] Home IoT 스마트 킷</option>
@@ -103,10 +103,18 @@
             <option value="mars">🚀 [행성탐사] NASA 우주 로버 원격 관제</option>
         </select>
 
-        <div id="topicBox" style="flex: 0.8; display: flex; align-items: center; gap: 4px; background: #1e293b; border: 2px solid rgba(255, 255, 255, 0.2); padding: 10px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-            <span style="font-size: 0.7rem; font-weight: bold; color: #38bdf8; white-space: nowrap;">토픽:</span>
-            <input type="text" id="topic" value="student01/cmd" autocomplete="off" spellcheck="false"
-                   style="background: transparent; border: none; color: #ffffff; font-size: 0.8rem; font-weight: bold; outline: none; width: 100%; text-align: center; padding: 0;">
+        <div style="display: flex; gap: 6px; width: 100%;">
+            <div id="topicBox" style="flex: 1; display: flex; align-items: center; gap: 4px; background: #1e293b; border: 2px solid rgba(255, 255, 255, 0.2); padding: 8px; border-radius: 10px;">
+                <span style="font-size: 0.65rem; font-weight: bold; color: #38bdf8; white-space: nowrap;">보낼 채널:</span>
+                <input type="text" id="topic" value="student01/cmd" autocomplete="off" spellcheck="false"
+                       style="background: transparent; border: none; color: #ffffff; font-size: 0.75rem; font-weight: bold; outline: none; width: 100%; text-align: center; padding: 0;">
+            </div>
+
+            <div id="subTopicBox" style="flex: 1; display: flex; align-items: center; gap: 4px; background: #1e293b; border: 2px solid rgba(255, 255, 255, 0.2); padding: 8px; border-radius: 10px;">
+                <span style="font-size: 0.65rem; font-weight: bold; color: #4ade80; white-space: nowrap;">받을 채널:</span>
+                <input type="text" id="subTopic" value="student01/res" autocomplete="off" spellcheck="false"
+                       style="background: transparent; border: none; color: #ffffff; font-size: 0.75rem; font-weight: bold; outline: none; width: 100%; text-align: center; padding: 0;">
+            </div>
         </div>
     </div>
 
@@ -153,6 +161,7 @@
     <div id="speechStatus">대시보드 링크 스탠바이</div>
     <div id="result"></div>
     <div id="ai-match"></div>
+    <div id="robot-response" style="font-size: 0.9rem; color: #4ade80; font-weight: bold; min-height: 25px; margin-top: 4px; opacity: 0.9; background: rgba(74, 222, 128, 0.1); padding: 4px 12px; border-radius: 15px; display: inline-block;">🤖 로봇 응답 대기 중...</div>
 </main>
 
 <div class="controls">

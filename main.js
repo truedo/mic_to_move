@@ -81,8 +81,16 @@ let base_embeddings = [];
 let isListening = false;
 
 // 초기 설정 동기화
-topicInput.value = AI_CONFIG.default_topic;
+if (topicInput) {
+    topicInput.value = AI_CONFIG.default_topic;
+}
 
+const subTopicInput = document.getElementById('subTopic');
+let currentSubTopic = subTopicInput ? subTopicInput.value : AI_CONFIG.default_sub_topic;
+// 3. 💡 [새로 추가] 화면이 처음 켜질 때 수신 인풋창에 기본값 주입
+if (subTopicInput) {
+    subTopicInput.value = AI_CONFIG.default_sub_topic;
+}
 // ==========================================
 // 3. 민감도 슬라이더 상태 조작 엔진
 // ==========================================
@@ -323,6 +331,59 @@ async function analyzeSpeechIntent(student_speech) {
 }
 
 // ==========================================
+// 💡 [새로 추가] 수신(RX) 토픽 실시간 수정 및 동적 재구독 엔진
+// ==========================================
+
+// 실시간 채널 변경 핵심 처리 함수
+function remapMqttSubscription() {
+    if (!subTopicInput || !client || !client.connected) return;
+
+    const newSubTopic = subTopicInput.value.trim();
+
+    if (!newSubTopic) {
+        alert("수신(RX) 토픽 채널 주소를 입력해 주세요!");
+        subTopicInput.value = currentSubTopic; // 공백일 경우 이전 값으로 롤백
+        return;
+    }
+
+    // 기존 채널과 다를 때만 변경 연산 수행
+    if (newSubTopic !== currentSubTopic) {
+        // 1. 기존에 듣고 있던 수신 채널 해제
+        client.unsubscribe(currentSubTopic, () => {
+            console.log(`기존 RX 채널 해제 완료: ${currentSubTopic}`);
+        });
+
+        // 2. 새롭게 입력한 수신 채널로 갈아타기 (구독)
+        client.subscribe(newSubTopic, (err) => {
+            if (!err) {
+                console.log(`새로운 RX 채널 실시간 구독 완수: ${newSubTopic}`);
+                speechStatusDiv.innerText = `📡 수신 채널이 [${newSubTopic}](으)로 변경됨`;
+                currentSubTopic = newSubTopic; // 현재 상태 최신화
+
+                // 안내 모드 스탠바이 리셋
+                setTimeout(() => { speechStatusDiv.innerText = "대시보드 링크 스탠바이"; }, 1500);
+            } else {
+                speechStatusDiv.innerText = "❌ 채널 변경 실패";
+            }
+        });
+    }
+}
+
+// 사용자가 입력창 수정을 끝내고 다른 곳을 터치했을 때(blur) 채널 변경 발동
+if (subTopicInput) {
+    subTopicInput.addEventListener('blur', remapMqttSubscription);
+
+    // 입력창에서 키보드 [엔터] 키를 눌렀을 때도 즉시 채널이 바뀌도록 UX 편의성 추가
+    subTopicInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            subTopicInput.blur(); // 포커스를 아웃시켜 위의 blur 이벤트를 트리거함
+        }
+    });
+}
+
+
+
+// ==========================================
 // 7. 스마트폰 마이크 음성인식 인터페이스 브릿지
 // ==========================================
 client.on("connect", () => { statusDiv.innerText = "● NETWORK CONNECTED"; statusDiv.style.borderColor = "#22c55e"; statusDiv.style.color = "#22c55e"; });
@@ -369,6 +430,50 @@ if (recognition) {
 
     recognition.onerror = (event) => { speechStatusDiv.innerText = "FAIL: " + event.error; isListening = false; button.classList.remove("listening"); };
 }
+
+
+// client 연결 설정 내부 (기존 로직에 추가)
+client.on('connect', () => {
+    document.getElementById('status').innerText = "🟢 관제 시스템 연결 완료";
+    document.getElementById('status').style.background = "rgba(34, 197, 94, 0.2)";
+    document.getElementById('status').style.borderColor = "#22c55e";
+
+    // 🌟 [신규] 연결되자마자 HTML에 적혀있는 RX(수신) 토픽을 자동으로 구독(Subscribe)합니다.
+    const rxTopic = document.getElementById('subTopic').value;
+    client.subscribe(rxTopic, (err) => {
+        if (!err) {
+            console.log(`구독 성공: ${rxTopic}`);
+        }
+    });
+});
+// 🌟 [신규] 브로커를 통해 로봇(Zumi)이 보내온 메시지를 수신했을 때 실행되는 핸들러
+client.on('message', (topic, message) => {
+    const receivedMsg = message.toString();
+    const rxTopic = document.getElementById('subTopic').value;
+
+    // 내가 설정한 수신 채널(RX)로 온 메시지가 맞는지 필터링
+    if (topic === rxTopic) {
+        // 1. 화면의 로봇 응답 창에 텍스트 출력
+        const resBox = document.getElementById('robot-response');
+        if (resBox) {
+            resBox.innerText = `🤖 로봇: "${receivedMsg}"`;
+            // 시각적 피드백을 위해 잠깐 반짝이는 애니메이션 효과 추가
+            resBox.style.transform = "scale(1.05)";
+            setTimeout(() => { resBox.style.transform = "scale(1.0)"; }, 200);
+        }
+
+        // 2. [선택 사항] 로봇의 응답을 스마트폰 스피커(TTS)로 직접 읽어주고 싶다면 활성화!
+        /*
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(receivedMsg);
+            utterance.lang = 'ko-KR';
+            utterance.rate = 1.1; // 약간 빠르게 설정
+            window.speechSynthesis.speak(utterance);
+        }
+        */
+    }
+});
+
 
 // 최초 가동 엔트리 트리거
 thresholdSlider.value = currentThreshold;
